@@ -29,6 +29,7 @@ Este archivo manda en todas las sesiones futuras. Léelo antes de tocar código.
 - `src/ServerScriptService/Server/Services` · adaptadores de Roblox (remotes, datos, mundo, combate, analítica).
 - `src/StarterPlayer/StarterPlayerScripts/Client` · red, estado, UI, controladores, criaturas.
 - `tools/web-preview` · vista previa web jugable (misma config exportada; motor JS con paridad comprobada).
+- `tools/roblox-preview` · galería de criaturas y vista del valle generadas con el código real de Roblox (`tests/lib/RobloxSandbox`, `@lune/roblox`). Úsala para revisar cambios visuales de `CreatureBuilder` o `ValleBuilder` antes de Studio.
 
 Requiere con `require(script.Parent.X)` (instancias), nunca con cadenas: así el código corre igual en Studio y en el arnés de Lune.
 La lógica pura no puede usar APIs de motor (`task`, `Instance`, `workspace`…): recibe `now`, `Rng` y dependencias por parámetro.

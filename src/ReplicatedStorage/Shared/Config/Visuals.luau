@@ -234,8 +234,17 @@ local RarityFrames = {
 	Misterio = { frame = rgb(60, 60, 60), style = "Punteado imposible" },
 }
 
+-- Rasgos de cara comunes de los blockouts (Brote: rubor y sonrisa; Tallado: ceño)
+local Face = {
+	blush = rgb(255, 146, 158),
+	mouth = rgb(40, 24, 22),
+	mouthOnDark = rgb(236, 150, 160), -- sobre cuerpos muy oscuros (Xolumi) la boca se aclara
+	sclera = rgb(250, 250, 246),
+}
+
 return Freeze.deep({
 	ById = Visuals,
+	Face = Face,
 	Opaco = Opaco,
 	RarityFrames = RarityFrames,
 })

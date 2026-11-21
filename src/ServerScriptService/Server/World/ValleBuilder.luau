@@ -11,6 +11,8 @@ local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local World = require(Shared.Config.World)
 local Elements = require(Shared.Config.Elements)
 local SpeciesConfig = require(Shared.Config.Species)
+local Ambience = require(Shared.Config.Ambience)
+local FloraLayout = require(script.Parent.FloraLayout)
 
 local ValleBuilder = {}
 
@@ -114,44 +116,54 @@ local function label(adornee: BasePart, text: string, sub: string?, color: Color
 	return gui
 end
 
+local function rgb(t: { number }): Color3
+	return Color3.fromRGB(t[1], t[2], t[3])
+end
+
 local function setupLighting()
-	Lighting.ClockTime = 16.6
-	Lighting.Brightness = 2.4
-	Lighting.GeographicLatitude = 23
-	Lighting.Ambient = Color3.fromRGB(70, 56, 52)
-	Lighting.OutdoorAmbient = Color3.fromRGB(150, 128, 112)
-	Lighting.EnvironmentDiffuseScale = 0.55
-	Lighting.EnvironmentSpecularScale = 0.5
-	Lighting.ShadowSoftness = 0.25
+	local L = Ambience.Lighting
+	Lighting.ClockTime = L.clockTime
+	Lighting.Brightness = L.brightness
+	Lighting.GeographicLatitude = L.geographicLatitude
+	Lighting.Ambient = rgb(L.ambient)
+	Lighting.OutdoorAmbient = rgb(L.outdoorAmbient)
+	Lighting.EnvironmentDiffuseScale = L.environmentDiffuseScale
+	Lighting.EnvironmentSpecularScale = L.environmentSpecularScale
+	Lighting.ShadowSoftness = L.shadowSoftness
 	pcall(function()
 		Lighting.Technology = Enum.Technology.Future
 	end)
+	local A = Ambience.Atmosphere
 	local atmosphere = Instance.new("Atmosphere")
-	atmosphere.Density = 0.32
-	atmosphere.Offset = 0.12
-	atmosphere.Color = Color3.fromRGB(232, 196, 160)
-	atmosphere.Decay = Color3.fromRGB(150, 110, 120)
-	atmosphere.Glare = 0.35
-	atmosphere.Haze = 1.4
+	atmosphere.Density = A.density
+	atmosphere.Offset = A.offset
+	atmosphere.Color = rgb(A.color)
+	atmosphere.Decay = rgb(A.decay)
+	atmosphere.Glare = A.glare
+	atmosphere.Haze = A.haze
 	atmosphere.Parent = Lighting
 	local bloom = Instance.new("BloomEffect")
-	bloom.Intensity = 0.55
-	bloom.Size = 28
-	bloom.Threshold = 1.6
+	bloom.Intensity = Ambience.Bloom.intensity
+	bloom.Size = Ambience.Bloom.size
+	bloom.Threshold = Ambience.Bloom.threshold
 	bloom.Parent = Lighting
 	local rays = Instance.new("SunRaysEffect")
-	rays.Intensity = 0.06
-	rays.Spread = 0.6
+	rays.Intensity = Ambience.SunRays.intensity
+	rays.Spread = Ambience.SunRays.spread
 	rays.Parent = Lighting
 	local grade = Instance.new("ColorCorrectionEffect")
-	grade.Saturation = 0.08
-	grade.Contrast = 0.06
-	grade.TintColor = Color3.fromRGB(255, 246, 234)
+	grade.Saturation = Ambience.Grade.saturation
+	grade.Contrast = Ambience.Grade.contrast
+	grade.TintColor = rgb(Ambience.Grade.tint)
 	grade.Parent = Lighting
 end
 
 local function buildTerrain()
 	local terrain = Workspace.Terrain
+	local look = Ambience.Terrain
+	terrain.Decoration = look.decoration
+	terrain:SetMaterialColor(Enum.Material.Grass, rgb(look.grass))
+	terrain:SetMaterialColor(Enum.Material.Mud, rgb(look.mud))
 	terrain:FillBlock(CFrame.new(0, -6, 20), Vector3.new(560, 12, 520), Enum.Material.Grass)
 	-- Colinas suaves que enmarcan el valle (la profundidad viene de la atmósfera)
 	for _, h in ipairs({
@@ -173,10 +185,17 @@ local function buildTerrain()
 		terrain:FillBlock(cf, Vector3.new(World.River.width + 8, 5, len), Enum.Material.Mud)
 		terrain:FillBlock(cf * CFrame.new(0, 0.6, 0), Vector3.new(World.River.width, 4, len), Enum.Material.Water)
 	end
-	terrain.WaterColor = Color3.fromRGB(70, 150, 150)
-	terrain.WaterTransparency = 0.6
-	terrain.WaterWaveSize = 0.08
-	terrain.WaterWaveSpeed = 6
+	local water = look.water
+	terrain.WaterColor = rgb(water.color)
+	terrain.WaterTransparency = water.transparency
+	terrain.WaterWaveSize = water.waveSize
+	terrain.WaterWaveSpeed = water.waveSpeed
+	terrain.WaterReflectance = water.reflectance
+	local clouds = Instance.new("Clouds")
+	clouds.Cover = Ambience.Clouds.cover
+	clouds.Density = Ambience.Clouds.density
+	clouds.Color = rgb(Ambience.Clouds.color)
+	clouds.Parent = terrain
 end
 
 local function buildPlaza(root: Instance)
@@ -592,15 +611,39 @@ local function buildEncounters(root: Instance)
 		)
 		zone.Name = markerId
 		zone:SetAttribute("Marker", markerId)
+		local linde = Ambience.Linde
+		-- Rocas de basalto redondeadas alrededor del Opaco
 		for k = 1, 5 do
 			local a = math.rad(k * 72)
-			part({
-				Size = Vector3.new(3, 2 + (k % 3), 3),
-				CFrame = CFrame.new(pos + Vector3.new(math.cos(a) * 9, 1, math.sin(a) * 9))
-					* CFrame.Angles(0, a, math.rad(8)),
-				Color = Color3.fromRGB(96, 96, 104),
-				Material = Enum.Material.Basalt,
-			}, folder)
+			local h = 2 + (k % 3)
+			ellipsoid(
+				Vector3.new(3.4, h, 3),
+				CFrame.new(pos + Vector3.new(math.cos(a) * 9, h * 0.3, math.sin(a) * 9))
+					* CFrame.Angles(0, a, math.rad(10)),
+				rgb(linde.boulder),
+				folder,
+				Enum.Material.Basalt
+			)
+		end
+		-- Juncos de chinampa: matas de tallos finos en anillo, con un hueco hacia el sendero
+		for k = 1, linde.reedClustersPerZone do
+			local a = (k + 0.5) / (linde.reedClustersPerZone + 1) * math.pi * 1.6 + math.pi * 0.45
+			local center = pos + Vector3.new(math.cos(a) * enc.radius * 0.8, 0, math.sin(a) * enc.radius * 0.8)
+			for j = 0, 2 do
+				local h = 3 + ((k + j) % 3) * 0.8
+				local reed = part({
+					Shape = Enum.PartType.Cylinder,
+					Size = Vector3.new(h, 0.35, 0.35),
+					CFrame = CFrame.new(center + Vector3.new((j - 1) * 0.7, h / 2, ((k + j) % 2) * 0.6))
+						* CFrame.Angles(0, 0, math.rad(90) + (j - 1) * 0.12),
+					Color = rgb(linde.reedColors[((k + j) % #linde.reedColors) + 1]),
+					Material = Enum.Material.Grass,
+					CanCollide = false,
+					CanQuery = false,
+					CanTouch = false,
+				}, folder)
+				reed.CastShadow = false
+			end
 		end
 		local mist = Instance.new("ParticleEmitter")
 		mist.Name = "OpacoMist"
@@ -667,6 +710,124 @@ local function buildDecor(root: Instance)
 	end
 end
 
+-- Árboles, rocas y arbustos del perímetro (FloraLayout.scatter): enmarcan el valle sin
+-- invadir zonas de juego. Pocas piezas por árbol; sin consultas de rayos.
+local function buildScatter(root: Instance)
+	local folder = Instance.new("Folder")
+	folder.Name = "Arboleda"
+	folder.Parent = root
+	local cfg = Ambience.Scatter
+	for i, prop in ipairs(FloraLayout.scatter()) do
+		local base = CFrame.new(prop.x, 0, prop.z) * CFrame.Angles(0, prop.yaw, 0)
+		local leaf = rgb(cfg.leaves[(i % #cfg.leaves) + 1])
+		if prop.kind == "Tree" then
+			local h = prop.height
+			part({
+				Shape = Enum.PartType.Cylinder,
+				Size = Vector3.new(h, 1.6, 1.6),
+				CFrame = base * CFrame.new(0, h / 2, 0) * CFrame.Angles(0, 0, math.rad(90) + prop.tilt),
+				Color = rgb(cfg.trunk),
+				Material = Enum.Material.Wood,
+			}, folder)
+			local s = prop.spread
+			for k = -1, 1 do
+				ellipsoid(
+					Vector3.new(s * 2, s * 1.7, s * 2),
+					base * CFrame.new(k * s * 0.55, h + (if k == 0 then s * 0.5 else 0), prop.jitter[k + 2] * s),
+					rgb(cfg.leaves[((i + k) % #cfg.leaves) + 1]),
+					folder,
+					Enum.Material.Grass
+				)
+			end
+		elseif prop.kind == "Rock" then
+			ellipsoid(
+				Vector3.new(prop.spread * 1.1, prop.spread * 0.6, prop.spread * 0.9),
+				base * CFrame.new(0, prop.spread * 0.18, 0) * CFrame.Angles(prop.tilt * 3, 0, prop.jitter[1] * 0.3),
+				rgb(cfg.rock),
+				folder,
+				Enum.Material.Slate
+			)
+		else
+			ellipsoid(
+				Vector3.new(prop.spread * 1.4, prop.spread * 0.8, prop.spread * 1.2),
+				base * CFrame.new(0, prop.spread * 0.3, 0),
+				leaf,
+				folder,
+				Enum.Material.Grass
+			)
+		end
+	end
+	for _, d in ipairs(folder:GetChildren()) do
+		if d:IsA("BasePart") then
+			d.CanQuery = false
+			d.CanTouch = false
+		end
+	end
+end
+
+-- Matas de flores (FloraLayout) y motas de copal flotando sobre la plaza y el árbol.
+-- Sin colisión ni consultas: no estorban al jugador ni al acompañante.
+local function buildFlora(root: Instance)
+	local folder = Instance.new("Folder")
+	folder.Name = "Flora"
+	folder.Parent = root
+	local cfg = Ambience.Flowers
+	for _, cluster in ipairs(FloraLayout.clusters()) do
+		ellipsoid(
+			Vector3.new(cfg.petalSize * 2.2, 0.5, cfg.petalSize * 2.2),
+			CFrame.new(cluster.x, 0.2, cluster.z),
+			C.leafDeep,
+			folder
+		)
+		for _, petal in ipairs(cluster.petals) do
+			local p = ellipsoid(
+				Vector3.new(cfg.petalSize, cfg.petalSize * 0.8, cfg.petalSize),
+				CFrame.new(cluster.x + petal.dx, 0.65, cluster.z + petal.dz),
+				rgb(cfg.colors[petal.color]),
+				folder
+			)
+			p.CastShadow = false
+		end
+	end
+	for _, d in ipairs(folder:GetChildren()) do
+		if d:IsA("BasePart") then
+			d.CanCollide = false
+			d.CanQuery = false
+			d.CanTouch = false
+		end
+	end
+
+	local m = Ambience.Motes
+	local volume = part({
+		Name = "CopalMotes",
+		Size = v3(m.size),
+		CFrame = CFrame.new(v3(m.center)),
+		Transparency = 1,
+		CanCollide = false,
+		CanQuery = false,
+		CanTouch = false,
+		CastShadow = false,
+	}, folder)
+	local motes = Instance.new("ParticleEmitter")
+	motes.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	motes.Shape = Enum.ParticleEmitterShape.Box
+	motes.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
+	motes.Color = ColorSequence.new(rgb(m.color))
+	motes.LightEmission = 1
+	motes.Rate = m.rate
+	motes.Lifetime = NumberRange.new(m.lifetime[1], m.lifetime[2])
+	motes.Speed = NumberRange.new(m.speed[1], m.speed[2])
+	motes.SpreadAngle = Vector2.new(180, 180)
+	motes.Size = NumberSequence.new(m.particleSize)
+	motes.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1),
+		NumberSequenceKeypoint.new(0.3, 0.2),
+		NumberSequenceKeypoint.new(0.7, 0.3),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	motes.Parent = volume
+end
+
 function ValleBuilder.build(): { lots: { Model }, root: Folder }
 	setupLighting()
 	buildTerrain()
@@ -680,6 +841,8 @@ function ValleBuilder.build(): { lots: { Model }, root: Folder }
 	local lots = buildLots(root)
 	buildEncounters(root)
 	buildDecor(root)
+	buildFlora(root)
+	buildScatter(root)
 	root.Parent = Workspace
 	return { lots = lots, root = root }
 end

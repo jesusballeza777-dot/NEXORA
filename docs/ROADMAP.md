@@ -31,10 +31,15 @@
   - Los Opacos restaurados recuperan su color en el mundo.
   - Apodos: se escapan en el texto enriquecido y se recortan por caracteres UTF-8.
   - Comandos de desarrollador → D-021; `Dev.ResetProfile` reinicia también el estado público y el cliente.
+- **Pase gráfico en Roblox:**
+  - Ambiente en datos (`Config/Ambience`): pasto animado, nubes, agua con reflejo, flores, árboles, rocas y arbustos del perímetro, juncos y basalto en la Linde, y motas de copal.
+  - Caras de los Brotes con dos brillos, rubor y sonrisa.
+  - Disco de cielo de Mitlaxis corregido: antes era un disco vertical gigante y el azul daba vueltas de campana.
+  - Comprobado con la galería y la vista del valle generadas desde el código real (`tools/roblox-preview`) y con `World.spec` (la API de Roblox valida clases y propiedades). La luz real se verá en Studio.
 
 ## Siguiente bloque (orden recomendado)
 1. **Validar en Roblox Studio** con `tests/Playtest/STUDIO_PLAYTEST.md` (conectar Roblox Studio MCP si es posible) y corregir lo que aparezca en la primera ejecución.
-2. **Llevar el pase gráfico a Roblox**: iluminación (`Lighting`, `Atmosphere`, `BloomEffect`, `ColorCorrection`), caras de las criaturas con rubor y brillo en los ojos, pasto y flores con `Terrain` decoración o mallas, partículas por elemento en combate.
+2. **Efectos de combate en Roblox**: partículas por elemento, destellos de golpe y de Golpe Nexo (la vista previa ya los tiene).
 3. **Aprobar el rediseño de los iniciales** (`docs/art/STARTERS_REDESIGN.md`) y responder P1, P2, P4, P11 y P93.
 4. **Cinemática de eclosión y de Tallado en Roblox** (la vista previa ya las tiene; en Roblox hay tarjeta pero no animación 3D).
 5. **Pulido de la Linde de las Chinampas**: escenario de combate con cámara dedicada, efectos por elemento, sonido.
@@ -44,7 +49,7 @@
 ## Problemas conocidos y riesgos
 | # | Tipo | Descripción | Acción |
 |---|---|---|---|
-| R1 | Validación | El código de servicios y cliente de Roblox nunca se ha ejecutado en Studio (no hay Studio ni MCP en este entorno). Pueden aparecer errores de API en la primera ejecución. | Checklist de Studio + revisión independiente del código |
+| R1 | Validación | Los servicios y el cliente de Roblox nunca se han ejecutado en Studio (no hay Studio ni MCP en este entorno). Ya se construyen el mundo y las criaturas con la API real de `@lune/roblox`, pero red, física, interfaz y guardado pueden fallar en la primera ejecución. | Checklist de Studio + revisión independiente del código |
 | R2 | Tipos | `luau-analyze` no pudo compilarse aquí; el modo `--!strict` no se ha verificado con el analizador. | Abrir en Studio o ejecutar luau-lsp con `rojo sourcemap` |
 | R3 | Balance | Xolumi tarda casi el doble en vencer al primer Opaco (D-008 / B-005). | Revisar con arte y sonido; posible Opaco de Fuego menos defensivo |
 | R4 | Arte | Todos los modelos son blockouts. | Pipeline de arte (Fase 2) |

@@ -9,4 +9,5 @@ echo "▸ Pruebas (Lune)";              lune run tests/runner
 echo "▸ Proyecto Rojo";               mkdir -p build && rojo build default.project.json -o build/NEXORA.rbxlx
 echo "▸ Vista previa web";            lune run tools/web-preview/build
 echo "▸ Paridad motor Luau ↔ JS";     node tools/web-preview/parity.mjs
+echo "▸ Vista de blockouts Roblox";   lune run tools/roblox-preview/build
 echo "✔ Todo en orden"

@@ -163,7 +163,9 @@ end
 collect(ROOT .. "tests")
 table.sort(specs)
 
-local harness = { get = get, T = T, game = game, require = harnessRequire, loadFile = loadFile }
+local RobloxSandbox = require("./lib/RobloxSandbox")
+local harness =
+	{ get = get, T = T, game = game, require = harnessRequire, loadFile = loadFile, sandbox = RobloxSandbox }
 local started = os.clock()
 for _, path in ipairs(specs) do
 	local rel = string.gsub(path, "^" .. ROOT, "")

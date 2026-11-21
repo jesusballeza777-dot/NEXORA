@@ -39,6 +39,13 @@ En Roblox la carta es un `ViewportFrame` con el modelo 3D sobre el fondo del bio
 - **Paleta del valle:** copal `#E8A848`, piedra `#C4B6A0`, jade `#3E967A`, barro `#B06240`, hoja `#56965C`, corteza `#60463A`, papel picado (rosa, ámbar, azul, violeta, verde) solo en acentos.
 - **Composición:** spawn mirando al árbol; río con chinampas separando la plaza de los lotes; la Linde (combate) al oeste en niebla gris; las puertas selladas de los biomas detrás del árbol como promesa.
 - Todo el escenario actual es **blockout** (`AssetStatus = "Blockout"`) con composición, iluminación y profundidad trabajadas.
+- **En Roblox** el ambiente vive en `Shared/Config/Ambience.luau`:
+  - luz de tarde (`Future`), atmósfera ámbar, bloom, rayos de sol y corrección de color;
+  - pasto animado (`Terrain.Decoration`), nubes, agua con reflejo;
+  - 64 matas de flores, árboles, rocas y arbustos en el perímetro (semilla fija, fuera de zonas de juego);
+  - juncos y rocas de basalto en la Linde, y una sola fuente de motas de copal.
+- **Caras de los Brotes:** ojos grandes con dos brillos, rubor y sonrisa (rosada sobre cuerpos muy oscuros como Xolumi). Los Tallados conservan ojos rasgados y ceño. Mitlaxis lleva un disco de cielo con estrellas y borde de oro.
+- Revisión sin Studio: `lune run tools/roblox-preview/build` genera la galería de criaturas y el valle a partir del código real de Roblox.
 
 ## 5. Interfaz
 Paneles cacao translúcidos con borde de copal y motivo de greca; botones de copal con relieve; jade para

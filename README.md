@@ -12,8 +12,9 @@ prompt maestro *Project Genesis*.
 |---|---|---|
 | Proyecto Roblox (Luau `--!strict`, Rojo) | `src/` | Completo para la Fase 1; pendiente de validar en Studio |
 | Datos de la Biblia (50 especies, 12 elementos, 72 ataques…) | `src/ReplicatedStorage/Shared/Config` | ✅ |
-| Pruebas (unitarias e integración, Lune) | `tests/` | ✅ 97 pruebas |
+| Pruebas (unitarias e integración, Lune) | `tests/` | ✅ 106 pruebas |
 | Vista previa web jugable (mismas reglas y motor) | `tools/web-preview/dist/NEXORA_Preview.html` | ✅ |
+| Vista de los modelos y el valle **de Roblox** (código real, sin Studio) | `lune run tools/roblox-preview/build` → `build/roblox-preview/` | ✅ |
 | Documentación | `docs/`, `CLAUDE.md` | ✅ |
 
 ## Probarlo ya (sin Roblox)
@@ -35,6 +36,7 @@ Activa *Enable Studio Access to API Services* (usa el almacén de **pruebas**) y
 ./scripts/check.sh               # formato, lint, pruebas, rojo build, vista previa y paridad
 lune run tests/runner Battle     # solo las pruebas cuyo archivo contiene "Battle"
 lune run tools/web-preview/build # regenera la vista previa desde la config Luau
+lune run tools/roblox-preview/build # galería de criaturas y valle de Roblox (build/roblox-preview)
 ```
 Reglas de trabajo: `CLAUDE.md`. Arquitectura: `docs/TECHNICAL_ARCHITECTURE.md`.
 

@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Valle Copal en Roblox</title>
+<style>
+  :root { --bg: #1f2b22; --ink: #f6ecd9; --muted: #c9bda6; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 14px/1.4 system-ui, sans-serif; overflow: hidden; }
+  canvas { display: block; }
+  #hud { position: fixed; left: 12px; top: 12px; right: 12px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; pointer-events: none; }
+  #hud strong { background: rgba(20, 28, 22, .72); padding: 8px 12px; border-radius: 10px; }
+  #hud small { color: var(--muted); }
+  nav { display: flex; gap: 6px; pointer-events: auto; }
+  nav button { min-height: 44px; min-width: 64px; border: 0; border-radius: 10px; background: rgba(20, 28, 22, .72); color: var(--ink); font: inherit; padding: 0 12px; cursor: pointer; }
+  nav button[aria-pressed="true"] { background: #e8a33d; color: #2a1c10; }
+</style>
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }</script>
+</head>
+<body>
+<div id="hud">
+  <strong>Valle Copal · Roblox <small>(ValleBuilder real · luz aproximada)</small></strong>
+  <nav id="views"></nav>
+</div>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+const DATA = __DATA__;
+const srgb = (c) => new THREE.Color().setRGB(c[0], c[1], c[2], THREE.SRGBColorSpace);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const atmo = DATA.lighting.atmosphere;
+const horizon = srgb(atmo.color);
+// Cielo: degradado de azul de tarde a la bruma de la Atmosphere
+const sky = document.createElement('canvas'); sky.width = 2; sky.height = 256;
+const g2 = sky.getContext('2d'); const grad = g2.createLinearGradient(0, 0, 0, 256);
+grad.addColorStop(0, '#6f9fd6'); grad.addColorStop(0.62, '#b9cbe0'); grad.addColorStop(1, '#' + horizon.getHexString());
+g2.fillStyle = grad; g2.fillRect(0, 0, 2, 256);
+const skyTex = new THREE.CanvasTexture(sky); skyTex.colorSpace = THREE.SRGBColorSpace;
+scene.background = skyTex;
+scene.fog = new THREE.FogExp2(horizon, 0.0016 + atmo.density * 0.004);
+
+// Sol de la tarde (ClockTime ~16.6): bajo, desde el oeste
+const hour = DATA.lighting.clockTime;
+const elev = Math.max(0.12, Math.cos(((hour - 12) / 12) * Math.PI) * 0.9);
+const sunDir = new THREE.Vector3(-0.9, elev, 0.35).normalize();
+scene.add(new THREE.HemisphereLight(0xcfe0f5, srgb(DATA.lighting.ambient).multiplyScalar(0.6), 1.1));
+const sun = new THREE.DirectionalLight(0xffdcb0, 2.6);
+sun.position.copy(sunDir.clone().multiplyScalar(260));
+sun.castShadow = true;
+sun.shadow.mapSize.set(4096, 4096);
+Object.assign(sun.shadow.camera, { left: -230, right: 230, top: 230, bottom: -230, near: 10, far: 700 });
+sun.shadow.bias = -0.0004;
+scene.add(sun);
+
+// Terreno (rellenos de Terrain registrados): pasto, barro y agua
+const DEFAULT_MAT = { Grass: [0.42, 0.62, 0.33], Mud: [0.46, 0.35, 0.27] };
+DATA.terrain.forEach((op, i) => {
+  const isWater = op.material === 'Water';
+  const rgb = isWater ? DATA.water.color : (DATA.materialColors[op.material] || DEFAULT_MAT[op.material] || [0.5, 0.5, 0.5]);
+  const mat = new THREE.MeshStandardMaterial({ color: srgb(rgb), roughness: isWater ? 0.12 : 0.95, metalness: 0,
+    transparent: isWater, opacity: isWater ? 1 - DATA.water.transparency * 0.6 : 1,
+    polygonOffset: true, polygonOffsetFactor: -i, polygonOffsetUnits: -i });
+  let mesh;
+  if (op.kind === 'Block') {
+    mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), mat);
+    const [x, y, z, a, b, c, d, e, f, g, h, k] = op.cf;
+    mesh.matrixAutoUpdate = false;
+    mesh.matrix.set(a, b, c, x, d, e, f, y, g, h, k, z, 0, 0, 0, 1).multiply(new THREE.Matrix4().makeScale(...op.size));
+  } else {
+    mesh = new THREE.Mesh(new THREE.SphereGeometry(op.radius, 48, 24), mat);
+    mesh.position.set(...op.center);
+  }
+  mesh.receiveShadow = !isWater;
+  scene.add(mesh);
+});
+
+// Partes del valle
+const GEO = {
+  Ellipsoid: new THREE.SphereGeometry(0.5, 20, 12), Ball: new THREE.SphereGeometry(0.5, 20, 12),
+  Block: new THREE.BoxGeometry(1, 1, 1), Cylinder: new THREE.CylinderGeometry(0.5, 0.5, 1, 24).rotateZ(Math.PI / 2),
+};
+const ROUGH = { Metal: 0.35, Glass: 0.05, SmoothPlastic: 0.55, Neon: 1 };
+const mats = new Map();
+function materialFor(p) {
+  const key = p.color.join(',') + p.material + p.transparency;
+  if (mats.has(key)) return mats.get(key);
+  const color = srgb(p.color);
+  const m = p.neon
+    ? new THREE.MeshBasicMaterial({ color: color.clone().multiplyScalar(1.5) })
+    : new THREE.MeshStandardMaterial({ color, roughness: ROUGH[p.material] ?? 0.85, metalness: p.material === 'Metal' ? 0.6 : 0 });
+  if (p.transparency > 0 || p.material === 'Glass') { m.transparent = true; m.opacity = Math.min(1 - p.transparency, p.material === 'Glass' ? 0.6 : 1); }
+  mats.set(key, m);
+  return m;
+}
+for (const p of DATA.parts) {
+  const m = new THREE.Mesh(GEO[p.shape] || GEO.Block, materialFor(p));
+  const [x, y, z, a, b, c, d, e, f, g, h, k] = p.cf;
+  m.matrixAutoUpdate = false;
+  m.matrix.set(a, b, c, x, d, e, f, y, g, h, k, z, 0, 0, 0, 1).multiply(new THREE.Matrix4().makeScale(...p.size));
+  m.castShadow = !p.neon && p.transparency < 0.5;
+  m.receiveShadow = true;
+  scene.add(m);
+}
+
+// Cámaras: la del jugador al aparecer (FOV 70 de Roblox) y vistas de revisión
+const VIEWS = {
+  spawn: { label: 'Llegada', pos: [0, 11, 56], look: [0, 14, -30] },
+  aerial: { label: 'Aérea', pos: [150, 170, 230], look: [0, 0, 10] },
+  lots: { label: 'Lotes', pos: [10, 26, 168], look: [0, 4, 100] },
+  linde: { label: 'Linde', pos: [-40, 20, 30], look: [-105, 4, -20] },
+};
+const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.5, 2000);
+const controls = new OrbitControls(camera, renderer.domElement);
+const nav = document.getElementById('views');
+function setView(id) {
+  const v = VIEWS[id] || VIEWS.spawn;
+  camera.position.set(...v.pos); controls.target.set(...v.look); controls.update();
+  for (const b of nav.children) b.setAttribute('aria-pressed', String(b.dataset.view === id));
+}
+for (const [id, v] of Object.entries(VIEWS)) {
+  const b = document.createElement('button'); b.textContent = v.label; b.dataset.view = id;
+  b.onclick = () => setView(id); nav.appendChild(b);
+}
+setView(new URLSearchParams(location.search).get('view') || 'spawn');
+addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+renderer.setAnimationLoop(() => { controls.update(); renderer.render(scene, camera); });
+document.body.dataset.ready = '1';
+</script>
+</body>
+</html>

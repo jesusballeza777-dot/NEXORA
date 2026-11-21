@@ -86,11 +86,14 @@ function CreatureBuilder.build(speciesId: string, form: string, opts: { opaco: b
 	local function E(size: Vector3, pos: Vector3, color: Color3, kind: string?, material: Enum.Material?)
 		return add("Ellipsoid", size, CFrame.new(pos), color, kind, material)
 	end
-	local function eyes(center: Vector3, spread: number, size: number)
+	-- Ojos grandes con dos brillos y rubor (Brote); ojos rasgados con ceño (Tallado).
+	-- `cheekZ` = dónde queda la superficie de la mejilla respecto al centro del ojo
+	-- (depende de la curvatura de cada cabeza; calculado por arquetipo).
+	local function eyes(center: Vector3, spread: number, size: number, cheekZ: number?)
 		for _, s in ipairs({ -1, 1 }) do
 			local c = center + Vector3.new(s * spread, 0, 0)
 			if not T then
-				E(Vector3.new(size * 2, size * 2.2, size * 1.4), c, Color3.fromRGB(250, 250, 246))
+				E(Vector3.new(size * 2, size * 2.2, size * 1.4), c, rgb(Visuals.Face.sclera))
 				E(
 					Vector3.new(size * 1.25, size * 1.4, size * 0.8),
 					c + Vector3.new(0, -size * 0.1, size * 0.5),
@@ -102,6 +105,18 @@ function CreatureBuilder.build(speciesId: string, form: string, opts: { opaco: b
 					Color3.new(1, 1, 1),
 					"Body",
 					Enum.Material.Neon
+				)
+				E(
+					Vector3.new(size * 0.2, size * 0.2, size * 0.2),
+					c + Vector3.new(s * size * 0.2, -size * 0.3, size * 0.92),
+					Color3.new(1, 1, 1),
+					"Body",
+					Enum.Material.Neon
+				)
+				E(
+					Vector3.new(size * 1.05, size * 0.55, size * 0.4),
+					c + Vector3.new(s * size * 0.35, -size * 1.25, cheekZ or 0),
+					rgb(Visuals.Face.blush)
 				)
 			else
 				add(
@@ -134,6 +149,23 @@ function CreatureBuilder.build(speciesId: string, form: string, opts: { opaco: b
 		end
 	end
 
+	-- Sonrisa del Brote: dos trazos finos en "v" suave sobre la superficie de la cabeza.
+	local bodyLuma = body.R * 0.299 + body.G * 0.587 + body.B * 0.114
+	local mouthColor = rgb(if bodyLuma < 0.25 then Visuals.Face.mouthOnDark else Visuals.Face.mouth)
+	local function smile(at: Vector3, width: number)
+		if T then
+			return
+		end
+		for _, s in ipairs({ -1, 1 }) do
+			add(
+				"Block",
+				Vector3.new(width, width * 0.15, width * 0.2),
+				CFrame.new(at + Vector3.new(s * width * 0.43, width * 0.07, 0)) * CFrame.Angles(0, 0, s * 0.32),
+				mouthColor
+			)
+		end
+	end
+
 	local a = vis.archetype
 	if a == "Opossum" then
 		E(
@@ -158,7 +190,7 @@ function CreatureBuilder.build(speciesId: string, form: string, opts: { opaco: b
 				accent
 			)
 		end
-		eyes(head + Vector3.new(0, 0.16, 0.5), if T then 0.25 else 0.27, if T then 0.17 else 0.21)
+		eyes(head + Vector3.new(0, 0.16, 0.5), if T then 0.25 else 0.27, if T then 0.17 else 0.21, 0.045)
 		for i = 1, 4 do
 			local s = if i % 2 == 0 then 1 else -1
 			add(
@@ -199,7 +231,8 @@ function CreatureBuilder.build(speciesId: string, form: string, opts: { opaco: b
 		)
 		local head = Vector3.new(0, (if T then 1.55 else 1.05) + lift * 0.5, if T then 1.6 else 1.35)
 		E(if T then Vector3.new(2.1, 1.3, 1.7) else Vector3.new(2.3, 1.45, 1.7), head, body, nil, Enum.Material.Glass)
-		eyes(head + Vector3.new(0, 0.25, 0.62), if T then 0.55 else 0.6, if T then 0.16 else 0.2)
+		eyes(head + Vector3.new(0, 0.25, 0.62), if T then 0.55 else 0.6, if T then 0.16 else 0.2, 0.07)
+		smile(head + Vector3.new(0, -0.2, 0.82), 0.34)
 		for _, s in ipairs({ -1, 1 }) do
 			for k = 0, 2 do
 				add(
@@ -266,20 +299,36 @@ function CreatureBuilder.build(speciesId: string, form: string, opts: { opaco: b
 				belly
 			)
 			add("Cylinder", Vector3.new(0.5, 1.5, 1.5), CFrame.new(0, 1.7, 0) * CFrame.Angles(0, 0, math.rad(90)), body)
+			-- Disco de cielo sobre las terrazas: noche con estrellas y borde de oro,
+			-- inclinado hacia el frente para que se lea desde la cámara del jugador.
+			local disc = CFrame.new(0, 2.45, 0.1) * CFrame.Angles(0.38, 0, 0) * CFrame.Angles(0, 0, math.rad(90))
+			add("Cylinder", Vector3.new(0.1, 2.3, 2.3), disc, Color3.fromRGB(226, 182, 80), "Body", Enum.Material.Metal)
 			add(
 				"Cylinder",
-				Vector3.new(0.12, 3.4, 3.4),
-				CFrame.new(0, 2.2, 0),
-				Color3.fromRGB(236, 196, 96),
-				"SpinZ",
+				Vector3.new(0.16, 1.95, 1.95),
+				disc * CFrame.new(0.04, 0, 0),
+				Color3.fromRGB(30, 38, 84),
+				"Body",
 				Enum.Material.Neon
 			)
+			for k = 0, 6 do
+				local r = 0.25 + (k % 3) * 0.24
+				local ang = k * 2.39
+				E(
+					Vector3.new(0.09, 0.09, 0.09),
+					(disc * CFrame.new(0.13, math.cos(ang) * r, math.sin(ang) * r)).Position,
+					Color3.fromRGB(255, 244, 214),
+					"Body",
+					Enum.Material.Neon
+				)
+			end
+			-- Sol de copal girando detrás del disco
 			add(
 				"Cylinder",
-				Vector3.new(0.16, 1.9, 1.9),
-				CFrame.new(0, 3.1, 0) * CFrame.Angles(0, 0, math.rad(90)),
-				Color3.fromRGB(28, 36, 70),
-				"SpinY",
+				Vector3.new(0.12, 0.9, 0.9),
+				CFrame.new(0, 3.35, -0.35),
+				Color3.fromRGB(246, 200, 92),
+				"SpinZ",
 				Enum.Material.Neon
 			)
 		end
@@ -295,7 +344,8 @@ function CreatureBuilder.build(speciesId: string, form: string, opts: { opaco: b
 		end
 		local head = Vector3.new(0, if T then 1.05 else 0.9, if T then 1.85 else 1.6)
 		E(Vector3.new(1.0, 0.9, 1.1), head, belly)
-		eyes(head + Vector3.new(0, 0.12, 0.38), 0.22, if T then 0.13 else 0.16)
+		eyes(head + Vector3.new(0, 0.12, 0.38), 0.22, if T then 0.13 else 0.16, 0.07)
+		smile(head + Vector3.new(0, -0.18, 0.5), 0.18)
 	else
 		-- Arquetipos de rivales del vertical slice (Agave, Armadillo, Cicada, Jar, Beetle)
 		E(Vector3.new(2.0, 1.7, 2.3), Vector3.new(0, 1.0, 0), body)
@@ -344,7 +394,8 @@ function CreatureBuilder.build(speciesId: string, form: string, opts: { opaco: b
 				E(Vector3.new(1.1, 1.0, 2.2), Vector3.new(s * 0.45, 1.25, -0.05), accent)
 			end
 		end
-		eyes(Vector3.new(0, 1.3, 1.05), 0.3, 0.2)
+		eyes(Vector3.new(0, 1.3, 1.05), 0.3, 0.2, 0.02)
+		smile(Vector3.new(0, 0.98, 1.12), 0.24)
 		for i = 1, 4 do
 			local s = if i % 2 == 0 then 1 else -1
 			add(

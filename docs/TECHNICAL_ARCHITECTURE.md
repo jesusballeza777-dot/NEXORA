@@ -45,8 +45,8 @@ flowchart TB
 | Dominio del servidor | `Server/Domain` | Reglas sobre el perfil y casos de uso (`Actions`) | Lune (`Phase1Flow.spec`) |
 | Persistencia | `Server/Persistence` | Bloqueo de sesión, migraciones, validación | Lune con `MemoryBackend` |
 | Servicios | `Server/Services` | Adaptadores de Roblox | Studio (`tests/Playtest`) |
-| Mundo | `Server/World` | Valle Copal procedural (blockout) | Studio |
-| Cliente | `StarterPlayerScripts/Client` | Red, estado, interfaz, presentación | Studio |
+| Mundo | `Server/World` | Valle Copal procedural (blockout); reparto de flora puro (`FloraLayout`) | Lune con `@lune/roblox` (`World.spec`: construcción con la API real, prompts con manejador, presupuestos) + Studio |
+| Cliente | `StarterPlayerScripts/Client` | Red, estado, interfaz, presentación | Studio; `PushBuffer` y `CreatureBuilder` también en Lune |
 
 ## 3. Modelo de datos
 
@@ -113,13 +113,14 @@ Combate: `Battle.Start(encounterId)` (proximidad al Opaco) → el servidor crea 
 | Comando | Qué hace |
 |---|---|
 | `rokit install` | Instala rojo 7.7.1, lune 0.11.1, stylua 2.6.0, selene 0.31.0 |
-| `lune run tests/runner [filtro]` | Pruebas unitarias e integración (78 en este bloque) |
+| `lune run tests/runner [filtro]` | Pruebas unitarias e integración (106 en este bloque) |
 | `./scripts/check.sh` | Formato, lint, pruebas, `rojo build`, vista previa y paridad |
 | `rojo serve` | Sincroniza con Roblox Studio (plugin de Rojo) |
 | `lune run tools/web-preview/build` | Exporta la config a JSON y genera `tools/web-preview/dist/NEXORA_Preview.html` |
 | `node tools/web-preview/parity.mjs` | Comprueba que 175 combates sembrados son idénticos en Luau y JS |
+| `lune run tools/roblox-preview/build` | Construye las criaturas (`CreatureBuilder`) y el valle (`ValleBuilder`) reales con `@lune/roblox` y genera `build/roblox-preview/Creatures.html` y `World.html` para revisarlos sin Studio |
 
-El arnés `tests/lib/VirtualGame.luau` reproduce el árbol de instancias de Rojo, así que los módulos usan los mismos `require(script.Parent.X)` en Studio y en Lune.
+El arnés `tests/lib/VirtualGame.luau` reproduce el árbol de instancias de Rojo, así que los módulos usan los mismos `require(script.Parent.X)` en Studio y en Lune. `tests/lib/RobloxSandbox.luau` añade las clases reales de `@lune/roblox` (Instance, CFrame, Enum…): una propiedad o clase mal escrita falla igual que en Studio. No hay física, render, red ni ciclo de juego: eso sigue validándose en Studio.
 
 ## 9. Extensibilidad prevista (sin implementar aún)
 - **Equipos de 3 / Arena:** el motor ya admite 1–3 por lado; faltan el cambio de monstruo y el emparejamiento.
