@@ -193,10 +193,11 @@ button { font-family: var(--font-title); color: var(--cream); cursor: pointer; b
   .brand { font-size: 16px; letter-spacing: 2px; padding: 4px 6px; }
   .chip { font-size: 15px; }
   #objective { max-width: calc(100vw - 92px); }
+  #toasts { top: calc(max(10px, env(safe-area-inset-top)) + 168px); width: calc(100vw - 96px); left: 10px; transform: none; }
   .dock-btn { width: 56px; height: 56px; font-size: 23px; }
 }
 </style>
-<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }</script>
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }</script>
 </head>
 <body>
 <canvas id="scene"></canvas>
