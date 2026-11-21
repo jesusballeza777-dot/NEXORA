@@ -1,17 +1,19 @@
 --!strict
--- Comandos de prueba (solo Studio o lista blanca de Config/Dev). Permiten acelerar la
--- progresión sin tocar el balance de producción. El contrato marca estas acciones
--- como devOnly y RemoteGateway las rechaza para cualquier otro jugador.
+-- Comandos de prueba (solo Studio, ver DevGate). Permiten acelerar la progresión sin
+-- tocar el balance de producción. El contrato marca estas acciones como devOnly y
+-- RemoteGateway las rechaza para cualquier otro jugador o servidor.
 
 local Server = script.Parent.Parent
+local ProfileView = require(Server.Domain.ProfileView)
 local PetRules = require(Server.Domain.PetRules)
 local ProfileSchema = require(Server.Domain.ProfileSchema)
 local DevGate = require(script.Parent.DevGate)
 
 local DevService = {}
 
-function DevService.init(deps: { data: any, gateway: any })
+function DevService.init(deps: { data: any, world: any, gateway: any })
 	local data = deps.data
+	local world = deps.world
 	deps.gateway.register("Dev.GrantXp", function(player, amount: number)
 		return data.run(player, function(p, ctx)
 			local pet = p.companionPetId and p.pets[p.companionPetId]
@@ -32,6 +34,11 @@ function DevService.init(deps: { data: any, gateway: any })
 			return { ok = false, err = "Forbidden" }
 		end
 		data.resetForDev(player, ProfileSchema.new(player.UserId, os.time()))
+		local session = data.get(player)
+		if session then
+			-- Estado público (acompañante y hábitat) también vuelve a cero para todos
+			world.publish(player, ProfileView.build(session.data, os.time()))
+		end
 		data.pushProfile(player)
 		return { ok = true }
 	end)

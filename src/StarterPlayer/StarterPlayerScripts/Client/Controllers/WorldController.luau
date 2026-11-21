@@ -13,6 +13,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
 local TweenService = game:GetService("TweenService")
+local ProximityPromptService = game:GetService("ProximityPromptService")
 local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -39,6 +40,8 @@ local suspended = false -- durante el combate el controlador de batalla toma el 
 local handlers: { [string]: (any) -> () } = {}
 local rayParams = RaycastParams.new()
 rayParams.FilterType = Enum.RaycastFilterType.Include
+-- Solo superficies sólidas: el papel picado, los halos y los letreros no son suelo
+rayParams.RespectCanCollide = true
 
 local function v3(t: { number }): Vector3
 	return Vector3.new(t[1], t[2], t[3])
@@ -57,74 +60,61 @@ local function decode(value: any): any
 	return if ok then data else nil
 end
 
+local function startEncounterAt(zone: Instance)
+	local marker = zone:GetAttribute("Marker")
+	for _, id in ipairs(Encounters.Order) do
+		if Encounters.ById[id].worldMarker == marker then
+			local r = Net.request("Battle.Start", id)
+			if not r.ok then
+				handlers.toast(Net.message(r.err))
+			end
+			return
+		end
+	end
+end
+
+local function onPrompt(prompt: ProximityPrompt)
+	local parent = prompt.Parent
+	if not parent then
+		return
+	end
+	local name = prompt.Name
+	if name == "ChooseEgg" then
+		handlers.confirmEgg(parent:GetAttribute("EggId"))
+	elseif name == "NexoMenu" then
+		handlers.openNexo(nil)
+	elseif name == "EncounterPrompt" then
+		startEncounterAt(parent)
+	elseif name == "Station" and parent:GetAttribute("StationId") == "Despensa" then
+		handlers.openShop(nil)
+	elseif name == "CollectPrompt" then
+		local r = Net.request("Sanctuary.Collect")
+		handlers.toast(if r.ok then string.format("+%d Monedas", r.data.coins) else Net.message(r.err))
+	elseif name == "SlotPrompt" then
+		handlers.openSanctuary(nil)
+	end
+end
+
 function WorldController.init(h: { [string]: (any) -> () })
 	handlers = h
 	valle = Workspace:WaitForChild("ValleCopal") :: Folder
 	publicFolder = ReplicatedStorage:WaitForChild("NexoPublic") :: Folder
 	rayParams.FilterDescendantsInstances = { Workspace.Terrain, valle }
 
-	-- Prompts físicos → acciones (el servidor vuelve a validar proximidad y estado)
-	for _, egg in ipairs((valle:WaitForChild("StarterEggs") :: Folder):GetChildren()) do
-		local prompt = egg:FindFirstChild("ChooseEgg") :: ProximityPrompt?
-		if prompt then
-			prompt.Triggered:Connect(function()
-				handlers.confirmEgg(egg:GetAttribute("EggId"))
-			end)
+	-- Prompts físicos → acciones (el servidor vuelve a validar proximidad y estado).
+	-- Un único despachador en ProximityPromptService: funciona aunque las piezas lleguen
+	-- tarde (streaming, recreación del mundo) y no deja prompts sin conectar.
+	ProximityPromptService.PromptTriggered:Connect(function(prompt: ProximityPrompt, who: Player)
+		if who == player and prompt:IsDescendantOf(valle) then
+			onPrompt(prompt)
 		end
-	end
-	local heart = valle:WaitForChild("GranNexo"):WaitForChild("NexoHeart") :: BasePart
-	local menuPrompt = heart:WaitForChild("NexoMenu") :: ProximityPrompt
-	menuPrompt.Triggered:Connect(function()
-		handlers.openNexo(nil)
 	end)
+	local heart = valle:WaitForChild("GranNexo"):WaitForChild("NexoHeart") :: BasePart
 	TweenService:Create(
 		heart,
 		TweenInfo.new(1.3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
 		{ Size = heart.Size * 1.08 }
 	):Play()
-
-	for _, station in ipairs((valle:WaitForChild("Stations") :: Folder):GetDescendants()) do
-		if
-			station:IsA("ProximityPrompt")
-			and station.Parent
-			and (station.Parent :: Instance):GetAttribute("StationId") == "Despensa"
-		then
-			station.Triggered:Connect(function()
-				handlers.openShop(nil)
-			end)
-		end
-	end
-	for _, zone in ipairs((valle:WaitForChild("Encounters") :: Folder):GetChildren()) do
-		local prompt = zone:FindFirstChild("EncounterPrompt") :: ProximityPrompt?
-		if prompt then
-			prompt.Triggered:Connect(function()
-				local marker = zone:GetAttribute("Marker")
-				for _, id in ipairs(Encounters.Order) do
-					if Encounters.ById[id].worldMarker == marker then
-						local r = Net.request("Battle.Start", id)
-						if not r.ok then
-							handlers.toast(Net.message(r.err))
-						end
-					end
-				end
-			end)
-		end
-	end
-	local lots = valle:WaitForChild("Lots") :: Folder
-	for _, lot in ipairs(lots:GetChildren()) do
-		for _, d in ipairs(lot:GetDescendants()) do
-			if d:IsA("ProximityPrompt") then
-				d.Triggered:Connect(function()
-					if d.Name == "CollectPrompt" then
-						local r = Net.request("Sanctuary.Collect")
-						handlers.toast(if r.ok then string.format("+%d Monedas", r.data.coins) else Net.message(r.err))
-					else
-						handlers.openSanctuary(nil)
-					end
-				end)
-			end
-		end
-	end
 end
 
 local function myLot(): Model?
@@ -180,7 +170,7 @@ function WorldController.syncOpacos(view: any)
 			end
 			opacos[id] = nil
 			if want ~= "" then
-				local c = CreatureBuilder.build(e.opponent, enc.opponent.form, { opaco = true })
+				local c = CreatureBuilder.build(e.opponent, enc.opponent.form, { opaco = not e.cleared })
 				if suspended then
 					c.model.Parent = nil
 				end

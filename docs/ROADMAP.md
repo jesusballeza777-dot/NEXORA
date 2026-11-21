@@ -10,21 +10,36 @@
 
 ## Hecho en el bloque 1 (Genesis)
 - Auditoría: repositorio vacío; Biblia compacta leída completa (46 p.); Biblia v5 de 127 p. no está en el repo; Roblox Studio MCP **no conectado**; herramientas compiladas desde crates.io: Rojo 7.7.1, Lune 0.11.1, StyLua 2.6.0, Selene 0.31.0.
-- Documentos: `CLAUDE.md`, `README.md`, `DESIGN_DECISIONS.md` (18 decisiones, 11 contradicciones), `GAME_DESIGN.md`, `TECHNICAL_ARCHITECTURE.md`, `MVP_SCOPE.md`, `ART_DIRECTION.md`, `art/STARTERS_REDESIGN.md`, `MONETIZATION_STRATEGY.md`.
+- Documentos: `CLAUDE.md`, `README.md`, `DESIGN_DECISIONS.md` (21 decisiones, 11 contradicciones), `GAME_DESIGN.md`, `TECHNICAL_ARCHITECTURE.md`, `MVP_SCOPE.md`, `ART_DIRECTION.md`, `art/STARTERS_REDESIGN.md`, `MONETIZATION_STRATEGY.md`.
 - Configuración de la Biblia en datos: 50 especies, 12 elementos, 72 ataques + 8 firmas, 8 talentos, rarezas, roles, progresión, combate, economía, santuario, encuentros, recompensas, onboarding, analítica, visuales y mundo.
 - Dominio puro: motor de combate determinista, IA, progresión, Vínculo, Tallado; reglas de servidor y casos de uso; perfil versionado con migraciones; persistencia con bloqueo de sesión.
 - Servidor Roblox: gateway de remotes validado, datos, mundo procedural de Valle Copal, juego, combate, analítica, modo de desarrollador.
 - Cliente Roblox: red, estado, HUD, modales, acompañantes para todos los jugadores, Opacos, combate presentado, retratos 3D.
-- Calidad: 78 pruebas Lune, Selene sin errores, `rojo build` OK, paridad Luau↔JS 175/175.
+- Calidad: 97 pruebas Lune, Selene sin errores, `rojo build` OK, paridad Luau↔JS 175/175.
 - Vista previa web jugable publicada (misma config y motor) y probada en Chromium de escritorio y móvil.
+- **Pase gráfico de la vista previa:** cielo con degradado, bloom, pasto instanciado con viento, agua con sombreado, flores, papel picado, Gran Nexo con vetas brillantes, luciérnagas, criaturas con luz de contorno, contorno y parpadeo, partículas por elemento en combate y calidad adaptativa en móvil.
+- **Revisión independiente del código Roblox (corregida):**
+  - Prompts sin conectar con streaming → D-019 y un único despachador de `ProximityPromptService`.
+  - Se podía perder el primer perfil enviado → `Client/PushBuffer` guarda los mensajes que llegan sin oyente, y la acción `Profile.Get` vuelve a pedir la vista.
+  - Granjeo de XP huyendo → D-020.
+  - Carrera al cerrar el servidor → `BindToClose` espera a las sesiones y a los guardados en curso; el bloqueo caduca a los 360 s en producción y a los 60 s en Studio.
+  - Error al aplicar un resultado de combate → el jugador nunca queda "en combate".
+  - Campos de `AnalyticsService` → claves `CustomField01..03` fijas (`Util/AnalyticsFields`), los números van al valor del evento.
+  - Rechazos remotos → registro limitado a 5 por minuto y jugador, sin texto del cliente.
+  - En combate, los números flotantes ya no se borran en cada turno, y "Huir" se reactiva si falla.
+  - El acompañante ya no se apoya en el papel picado ni en los halos (`RespectCanCollide`).
+  - Los Opacos restaurados recuperan su color en el mundo.
+  - Apodos: se escapan en el texto enriquecido y se recortan por caracteres UTF-8.
+  - Comandos de desarrollador → D-021; `Dev.ResetProfile` reinicia también el estado público y el cliente.
 
 ## Siguiente bloque (orden recomendado)
-1. **Validar en Roblox Studio** con `tests/Playtest/STUDIO_PLAYTEST.md` (conectar Roblox Studio MCP si es posible) y corregir lo que aparezca en la primera ejecución. Revisar el informe de la revisión independiente del código Roblox.
-2. **Aprobar el rediseño de los iniciales** (`docs/art/STARTERS_REDESIGN.md`) y responder P1, P2, P4, P11 y P93.
-3. **Cinemática de eclosión y de Tallado en Roblox** (la vista previa ya las tiene; en Roblox hay tarjeta pero no animación 3D).
-4. **Pulido de la Linde de las Chinampas**: escenario de combate con cámara dedicada, efectos por elemento, sonido.
-5. **Medición en dispositivo móvil de gama baja**: memoria, draw calls, 8 monstruos a 30 fps.
-6. Fase 2: incubadora (tiempos y aceleración solo de tiempo), Tablón de Encargos (3 diarios + 1 semanal), Repisa de Cofres ganados, Álbum del Nexo, región 2 del Acto I y Copalia.
+1. **Validar en Roblox Studio** con `tests/Playtest/STUDIO_PLAYTEST.md` (conectar Roblox Studio MCP si es posible) y corregir lo que aparezca en la primera ejecución.
+2. **Llevar el pase gráfico a Roblox**: iluminación (`Lighting`, `Atmosphere`, `BloomEffect`, `ColorCorrection`), caras de las criaturas con rubor y brillo en los ojos, pasto y flores con `Terrain` decoración o mallas, partículas por elemento en combate.
+3. **Aprobar el rediseño de los iniciales** (`docs/art/STARTERS_REDESIGN.md`) y responder P1, P2, P4, P11 y P93.
+4. **Cinemática de eclosión y de Tallado en Roblox** (la vista previa ya las tiene; en Roblox hay tarjeta pero no animación 3D).
+5. **Pulido de la Linde de las Chinampas**: escenario de combate con cámara dedicada, efectos por elemento, sonido.
+6. **Medición en dispositivo móvil de gama baja**: memoria, draw calls, 8 monstruos a 30 fps.
+7. Fase 2: incubadora (tiempos y aceleración solo de tiempo), Tablón de Encargos (3 diarios + 1 semanal), Repisa de Cofres ganados, Álbum del Nexo, región 2 del Acto I y Copalia.
 
 ## Problemas conocidos y riesgos
 | # | Tipo | Descripción | Acción |

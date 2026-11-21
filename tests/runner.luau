@@ -163,7 +163,7 @@ end
 collect(ROOT .. "tests")
 table.sort(specs)
 
-local harness = { get = get, T = T, game = game, require = harnessRequire }
+local harness = { get = get, T = T, game = game, require = harnessRequire, loadFile = loadFile }
 local started = os.clock()
 for _, path in ipairs(specs) do
 	local rel = string.gsub(path, "^" .. ROOT, "")

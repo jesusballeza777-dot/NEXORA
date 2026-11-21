@@ -39,7 +39,7 @@ conocidos** depende de la primera sesión en Studio (`tests/Playtest/STUDIO_PLAY
 - **Santuario:** Lote Hogar, 1 hábitat de 4 lugares, Vivero 40, producción de Monedas y XP pasiva por tiempo de servidor con tope de 8 h.
 - **Economía:** Monedas ganadas; Gemas solo por logros deterministas; Despensa de precio fijo. Sin Robux, sin aleatoriedad pagada.
 - **Analítica:** embudo de onboarding completo (12 pasos) y eventos de sesión, guardado, combate, recogida y desbloqueo.
-- **Modo de desarrollador:** XP ×10 y Monedas ×5 solo en Studio o lista blanca; nunca en producción.
+- **Modo de desarrollador:** XP ×10 y Monedas ×5 solo en Studio (almacén de pruebas); nunca en servidores publicados (D-021).
 
 ## Fuera de la Fase 1 (preparado, no construido)
 Cinco biomas completos · 50 modelos finales · seis actos y guardianes · Guardianes Velados · crianza y 42 recetas · incubadora · cofres · Arena 1v1/2v2 y torneos · intercambio · gremios · suscripción · tienda con Robux · eventos comerciales · vitrina · decoración.

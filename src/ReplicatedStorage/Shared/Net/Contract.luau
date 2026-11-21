@@ -27,6 +27,9 @@ end
 local B: ArgSpec = { kind = "bool" }
 
 local Actions: { [string]: ActionSpec } = {
+	-- Sincronización: el cliente pide reenviar su vista al terminar de conectarse
+	["Profile.Get"] = { args = {}, rate = { burst = 2, perSecond = 0.2 } },
+
 	-- Onboarding
 	["Onboarding.FinishIntro"] = { args = { B }, rate = { burst = 2, perSecond = 0.2 } },
 	["Hatch.ChooseStarter"] = { args = { S(16) }, rate = { burst = 2, perSecond = 0.2 }, near = "StarterEggs" },

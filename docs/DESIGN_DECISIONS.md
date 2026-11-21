@@ -122,6 +122,19 @@ Formato: **estado** · decisión · por qué · consecuencias · dónde vive · 
 ### D-018 · Estructura del proyecto — D
 - Se sigue la estructura propuesta con tres ajustes: archivos `.luau`; la lógica pura vive en `Shared/Domain` y `Server/Domain` para poder probarse fuera de Studio; los servicios pequeños de juego (eclosión, cuidado, santuario, tienda, recompensas) comparten `GameplayService` porque cada manejador es una línea que delega en `Domain/Actions`.
 
+### D-019 · Mundo sin streaming en el vertical slice — D
+- Valle Copal es pequeño (un solo lugar, piezas procedurales). Con `StreamingEnabled` el cliente podía arrancar sin los huevos, estaciones o lotes y dejar ProximityPrompts sin conectar.
+- **Decisión:** `Workspace.StreamingEnabled = false` en `default.project.json`; el cliente espera a `game.Loaded`, y todos los prompts pasan por un único `ProximityPromptService.PromptTriggered`, que sigue funcionando si se reactiva el streaming. Revisar cuando el mundo crezca (Fase 2: región 2 y Copalia), midiendo memoria en móviles de gama baja.
+
+### D-020 · Huir no da experiencia; consolación limitada — D
+- **Biblia:** perder un combate da algo de XP para que no se sienta como un castigo (p. 63–64).
+- **Hueco:** huir en el primer turno también contaba como derrota, así que se podía repetir "empezar y huir" para cultivar XP sin jugar.
+- **Decisión:** huir (`Forfeit`) cierra el combate sin XP ni recompensa. La XP de consolación por derrota real se limita a **10 por día** por cuenta (`EncounterRules.DAILY_CONSOLATION_LIMIT`, día UTC). Cubierto por pruebas de integración.
+
+### D-021 · Comandos de desarrollador solo en Studio — D
+- Antes, un UserId en `Config/Dev.AllowedUserIds` activaba los comandos de prueba también en servidores publicados, que escriben en el DataStore de producción.
+- **Decisión:** `DevGate` solo autoriza dentro de Studio (que usa el almacén de pruebas); en Studio la lista restringe quién puede usarlos (vacía = todos). Ningún multiplicador puede tocar datos reales.
+
 ---
 
 ## 3. Contradicciones detectadas en la Biblia

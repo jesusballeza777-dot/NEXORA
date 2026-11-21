@@ -28,6 +28,8 @@ local STATUS =
 local KIND = { Basic = "Básico · +1 Savia", Special = "Especial", Signature = "Firma", Nexo = "Golpe Nexo" }
 
 local gui: ScreenGui
+-- Números flotantes aparte: render() vacía `gui` en cada turno y no debe cortarlos
+local fx: Folder
 local hooks: { [string]: any }
 local battle: any = nil
 local queue: { any } = {}
@@ -41,6 +43,9 @@ function BattleController.init(h: { [string]: any })
 	hooks = h
 	gui = Kit.screen("NexoBattle", 15)
 	gui.Enabled = false
+	fx = Instance.new("Folder")
+	fx.Name = "NexoBattleFx"
+	fx.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
 	Net.on("BattleStart", function(payload)
 		BattleController.begin(payload)
 	end)
@@ -84,7 +89,7 @@ local function card(c: any, mine: boolean, parent: Instance, anchor: Vector2, po
 		Kit.padding(10),
 		Kit.list(Enum.FillDirection.Vertical, 4, Enum.HorizontalAlignment.Left),
 		Kit.text(
-			string.format("<b>%s</b>   Nv %d", c.name, c.level),
+			string.format("<b>%s</b>   Nv %d", Kit.escape(c.name), c.level),
 			17,
 			{ FontFace = Kit.Font.title, TextXAlignment = Enum.TextXAlignment.Left, LayoutOrder = 1 }
 		),
@@ -128,9 +133,15 @@ function BattleController.render(caption: string?)
 	card(foe, false, gui, Vector2.new(1, 0), UDim2.new(1, -12, 0, 60))
 	card(me, true, gui, Vector2.new(0, 1), UDim2.new(0, 12, 1, -190))
 	Kit.button("Huir", "secondary", function()
-		if not battle.busy then
-			battle.busy = true
-			Net.request("Battle.Forfeit", battle.id)
+		local current = battle
+		if current and not current.busy then
+			current.busy = true
+			local r = Net.request("Battle.Forfeit", current.id)
+			if not r.ok and battle == current then
+				current.busy = false
+				hooks.toast(Net.message(r.err))
+				BattleController.render(nil)
+			end
 		end
 	end, { Size = UDim2.fromOffset(90, 44), Position = UDim2.fromOffset(12, 60), Parent = gui })
 	if caption then
@@ -249,7 +260,7 @@ function BattleController.begin(payload: any)
 		)
 	end)
 	gui.Enabled = true
-	BattleController.render(string.format("¡Un %s aparece entre la niebla!", foe.name))
+	BattleController.render(string.format("¡Un %s aparece entre la niebla!", Kit.escape(foe.name)))
 end
 
 local function lunge(isMine: boolean)
@@ -274,7 +285,7 @@ local function floater(isMine: boolean, text: string, color: Color3)
 		StudsOffset = Vector3.new(0, 4, 0),
 		AlwaysOnTop = true,
 		Adornee = anchor,
-		Parent = gui,
+		Parent = fx,
 	})
 	local label = Kit.text(text, 30, {
 		FontFace = Kit.Font.title,
@@ -294,7 +305,7 @@ local function nameOf(uid: string): string
 	for _, side in ipairs(battle.snapshot.sides) do
 		for _, c in ipairs(side.team) do
 			if c.uid == uid then
-				return c.name
+				return Kit.escape(c.name)
 			end
 		end
 	end
@@ -374,6 +385,7 @@ local function finish(payload: any)
 	battle = nil
 	gui.Enabled = false
 	gui:ClearAllChildren()
+	fx:ClearAllChildren()
 	local camera = Workspace.CurrentCamera
 	camera.CameraType = Enum.CameraType.Custom
 	local character = Players.LocalPlayer.Character

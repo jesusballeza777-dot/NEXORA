@@ -92,17 +92,17 @@ Combate: `Battle.Start(encounterId)` (proximidad al Opaco) → el servidor crea 
 | Duplicación entre servidores | Bloqueo de sesión; guardado solo si el servidor es dueño; `LockLost` ⇒ expulsión |
 | Perfil corrupto | Validación al cargar; un perfil inválido nunca se sobrescribe |
 | Apodos ofensivos | `TextService` en el servidor; si falla el filtro, se rechaza |
-| Comandos de prueba en vivo | `devOnly` en el contrato + `DevGate` (Studio o lista blanca) |
+| Comandos de prueba en vivo | `devOnly` en el contrato + `DevGate` (solo Studio, D-021) |
 
 ## 6. Persistencia
 - `ProfileStore.load`: `UpdateAsync` que toma el bloqueo si está libre o caducado (30 min), migra (`Migrations[v]`), rellena campos nuevos (`reconcile`) y valida. Reintentos con espera exponencial ante fallos o bloqueo ajeno.
 - `ProfileStore.save`: valida, escribe solo si el `jobId` sigue siendo dueño; `release` libera el bloqueo. Guardados concurrentes se encolan.
-- `PlayerDataService`: autoguardado cada 120 s, liberación al salir con reintentos, `BindToClose` (hasta 25 s), expulsión controlada si el bloqueo se perdió.
+- `PlayerDataService`: autoguardado cada 120 s, liberación al salir con reintentos, `BindToClose` que espera a las sesiones y a los guardados en curso (hasta 25 s), bloqueo que caduca sin latido a los 360 s (60 s en Studio) y expulsión controlada si el bloqueo se perdió.
 - **Almacenes:** Studio → `NEXORA_Profiles_TEST_v1` (o memoria si Studio no tiene acceso a la API); servidor publicado → `NEXORA_Profiles_v1`.
 - Pruebas (`tests/Integration/Phase1Flow.spec.luau`): reconexión sin pérdida, recompensa pendiente que sobrevive a la desconexión, segundo servidor bloqueado, robo de bloqueo caducado sin sobrescritura, reintentos, perfil corrupto intacto, migraciones.
 
 ## 7. Rendimiento (móvil primero)
-- `Workspace.StreamingEnabled = true` (default.project.json).
+- `Workspace.StreamingEnabled = false` en el vertical slice (D-019); todos los prompts pasan por `ProximityPromptService.PromptTriggered`, así que reactivar el streaming no los rompe.
 - Criaturas del lado del cliente, sin física ni colisiones; animación con `workspace:BulkMoveTo`; solo se animan a menos de 140 studs de la cámara.
 - Solo se construyen las especies presentes (nunca las 50).
 - Valle: luces puntuales ≤ 12, partículas solo en el corazón del árbol y en la niebla de los Opacos.

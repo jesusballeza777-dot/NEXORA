@@ -1,13 +1,14 @@
 --!strict
 -- Configuración de desarrollador. NUNCA altera el balance de producción:
 -- los multiplicadores solo se aplican cuando Server/Services/DevGate autoriza al
--- jugador (Studio, o UserId en la lista blanca de un servidor privado de pruebas).
+-- jugador, y eso solo ocurre en Studio (que usa el almacén de pruebas).
 
 local Freeze = require(script.Parent.Parent.Util.Freeze)
 
 return Freeze.deep({
 	EnabledInStudio = true,
-	-- UserIds con acceso a comandos de prueba en servidores en vivo (vacío por defecto).
+	-- Restringe los comandos de prueba de Studio a estos UserIds (vacío = todos en Studio).
+	-- No tiene efecto en servidores publicados.
 	AllowedUserIds = {},
 	XpMultiplier = 10,
 	CoinMultiplier = 5,

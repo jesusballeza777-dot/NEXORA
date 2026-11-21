@@ -38,6 +38,12 @@ recorrer esta lista: inspeccionar el árbol, leer la consola y hacer playtests.
 | Turno repetido | Enviar dos veces `Battle.Act` con el mismo turno | segundo `BadTurn` | ☐ |
 | Dos servidores | Team Test con el mismo usuario en dos sesiones | la segunda no carga hasta liberar; sin duplicados | ☐ |
 | Desconexión en combate | Cerrar durante un combate | sin resultado ni recompensa; al volver todo intacto | ☐ |
+| Huir para cultivar XP | Empezar y "Huir" 3 veces | ni XP ni recompensa; "Huir" vuelve a funcionar si el servidor rechaza | ☐ |
+| Cerrar el servidor | Studio: Stop con el jugador dentro | consola sin "Guardado final fallido"; al volver, datos intactos | ☐ |
+| Prompts tras recargar | Play varias veces seguidas | huevos, árbol, Despensa, lote y Opacos responden siempre | ☐ |
+| Primer perfil | Play con red lenta (Studio: Network → Incoming Replication Lag 1 s) | HUD y objetivo aparecen sin quedarse en "Cargando" | ☐ |
+| Apodo con símbolos | Nombrar "<b>Ñu🌶️</b>" (≥ 16 caracteres) | se ve literal (sin negrita) y recortado sin caracteres rotos | ☐ |
+| Comandos de prueba | En un servidor publicado, `InvokeServer("Dev.GrantCoins", n, 100)` | `Forbidden` | ☐ |
 
 ## Móvil y rendimiento
 | Prueba | Esperado | ✔ |

@@ -58,4 +58,23 @@ function Guard.newBucket(burst: number, now: number): Bucket
 	return { tokens = burst, updatedAt = now }
 end
 
+-- Ventana fija: como mucho `limit` sucesos cada `seconds` (p. ej. registrar rechazos).
+export type Window = { since: number, count: number }
+
+function Guard.newWindow(now: number): Window
+	return { since = now, count = 0 }
+end
+
+function Guard.allowInWindow(w: Window, limit: number, seconds: number, now: number): boolean
+	if now - w.since >= seconds then
+		w.since = now
+		w.count = 0
+	end
+	if w.count < limit then
+		w.count += 1
+		return true
+	end
+	return false
+end
+
 return Guard

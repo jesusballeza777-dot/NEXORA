@@ -75,10 +75,24 @@ end
 local function conclude(player: Player, s: Session)
 	local outcome = s.state.outcome :: any
 	local won = outcome.winner == 1
-	local result = data.run(player, function(p, ctx)
-		return Actions.finishEncounter(p, s.encounterId, s.battleId, won, s.state.turn, s.participants, ctx)
-	end)
+	-- Se libera antes de aplicar el resultado: un error nunca deja al jugador "en combate"
 	active[player] = nil
+	local okRun, result = pcall(data.run, player, function(p, ctx)
+		return Actions.finishEncounter(
+			p,
+			s.encounterId,
+			s.battleId,
+			won,
+			s.state.turn,
+			s.participants,
+			ctx,
+			outcome.reason
+		)
+	end)
+	if not okRun then
+		Log.error("No se pudo aplicar el combate %s: %s", s.battleId, tostring(result))
+		result = { ok = false, err = "ServerError" }
+	end
 	fire(player, Contract.Push.BattleEnd, {
 		battleId = s.battleId,
 		encounterId = s.encounterId,

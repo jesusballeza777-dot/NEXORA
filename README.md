@@ -12,7 +12,7 @@ prompt maestro *Project Genesis*.
 |---|---|---|
 | Proyecto Roblox (Luau `--!strict`, Rojo) | `src/` | Completo para la Fase 1; pendiente de validar en Studio |
 | Datos de la Biblia (50 especies, 12 elementos, 72 ataques…) | `src/ReplicatedStorage/Shared/Config` | ✅ |
-| Pruebas (unitarias e integración, Lune) | `tests/` | ✅ 78 pruebas |
+| Pruebas (unitarias e integración, Lune) | `tests/` | ✅ 97 pruebas |
 | Vista previa web jugable (mismas reglas y motor) | `tools/web-preview/dist/NEXORA_Preview.html` | ✅ |
 | Documentación | `docs/`, `CLAUDE.md` | ✅ |
 

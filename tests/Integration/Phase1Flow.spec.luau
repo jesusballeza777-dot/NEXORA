@@ -323,3 +323,33 @@ T.describe("Fase 1 · reglas de servidor", function()
 		expect(Actions.place(p, petId, 9, ctx()).err).toBe("BadSlot")
 	end)
 end)
+
+T.describe("Revisión: huir y consolación", function()
+	T.it("retirarse de un combate no da XP (no es una granja)", function()
+		local p = ProfileSchema.new(91, clockValue)
+		local petId = runTutorial(p, "EggBrasa")
+		local before = { level = p.pets[petId].level, xp = p.pets[petId].xp }
+		for i = 1, 20 do
+			local r = Actions.finishEncounter(p, "valle_r1_e1", "F" .. i, false, 1, { petId }, ctx(), "Forfeit")
+			expect(r.ok).toBe(true)
+		end
+		expect(p.pets[petId].level).toBe(before.level)
+		expect(p.pets[petId].xp).toBe(before.xp)
+	end)
+
+	T.it("la XP de consolación por derrota tiene tope diario", function()
+		local p = ProfileSchema.new(92, clockValue)
+		local petId = runTutorial(p, "EggGreca")
+		local granted = 0
+		for i = 1, 15 do
+			local r = Actions.finishEncounter(p, "valle_r1_e1", "L" .. i, false, 3, { petId }, ctx(), "Defeat")
+			if r.data.pets then
+				granted += 1
+			end
+		end
+		expect(granted).toBe(10)
+		advance(86400)
+		local r = Actions.finishEncounter(p, "valle_r1_e1", "L-next-day", false, 3, { petId }, ctx(), "Defeat")
+		expect(r.data.pets ~= nil).toBe(true)
+	end)
+end)

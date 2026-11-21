@@ -2,9 +2,9 @@
 -- Ciclo de vida de los perfiles: carga con bloqueo de sesión, autoguardado, guardado
 -- al salir y en BindToClose, y envío de la vista del perfil al cliente.
 --
--- Almacén: Studio y servidores con jugadores en la lista de pruebas usan el DataStore
--- de PRUEBAS; solo el servidor publicado usa el de producción. Si Studio no tiene
--- acceso a la API, se usa un backend en memoria (los datos no persisten).
+-- Almacén: Studio usa el DataStore de PRUEBAS; solo el servidor publicado usa el de
+-- producción. Si Studio no tiene acceso a la API, se usa un backend en memoria (los
+-- datos no persisten).
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -24,6 +24,10 @@ local Log = require(Server.Util.Log).scope("Data")
 local DevGate = require(script.Parent.DevGate)
 
 local AUTOSAVE_SECONDS = 120
+-- Un bloqueo sin latido durante este tiempo se considera abandonado (servidor caído).
+-- Producción: 3 autoguardados. Studio: 60 s y jobId estable para retomar la propia sesión.
+local LOCK_TIMEOUT_PRODUCTION = AUTOSAVE_SECONDS * 3
+local LOCK_TIMEOUT_STUDIO = 60
 
 local PlayerDataService = {}
 PlayerDataService.sessions = {} :: { [Player]: ProfileStore.Session }
@@ -54,7 +58,8 @@ function PlayerDataService.init(deps: { analytics: any })
 	PlayerDataService.storeKind = kind
 	PlayerDataService.store = ProfileStore.new({
 		backend = backend,
-		jobId = if game.JobId ~= "" then game.JobId else "studio-" .. tostring(os.time()),
+		jobId = if game.JobId ~= "" then game.JobId else "studio-local",
+		lockTimeout = if RunService:IsStudio() then LOCK_TIMEOUT_STUDIO else LOCK_TIMEOUT_PRODUCTION,
 		clock = os.time,
 		wait = function(s: number)
 			task.wait(s)
@@ -116,12 +121,16 @@ local function onPlayerAdded(player: Player)
 	PlayerDataService.pushProfile(player)
 end
 
+local savesInFlight = 0
+
 local function release(player: Player)
 	local session = PlayerDataService.sessions[player]
 	if not session then
 		return
 	end
 	PlayerDataService.sessions[player] = nil
+	-- Cuenta como guardado en curso hasta terminar: BindToClose espera a que llegue a 0
+	savesInFlight += 1
 	session.data.playSeconds += math.max(0, os.time() - session.loadedAt)
 	local ok, err = PlayerDataService.store:saveWithRetry(session, true)
 	if analytics then
@@ -131,6 +140,7 @@ local function release(player: Player)
 	if not ok then
 		Log.error("Guardado final fallido para %d: %s", player.UserId, tostring(err))
 	end
+	savesInFlight -= 1
 end
 
 function PlayerDataService.start()
@@ -161,16 +171,14 @@ function PlayerDataService.start()
 	end)
 
 	game:BindToClose(function()
-		local pending = 0
+		-- Liberar a quien siga conectado y esperar también los guardados ya iniciados
+		-- (p. ej. PlayerRemoving del último jugador), con un límite de 25 s.
 		for player in pairs(PlayerDataService.sessions) do
-			pending += 1
-			task.spawn(function()
-				release(player)
-				pending -= 1
-			end)
+			task.spawn(release, player)
 		end
 		local deadline = os.clock() + 25
-		while pending > 0 and os.clock() < deadline do
+		task.wait()
+		while (next(PlayerDataService.sessions) ~= nil or savesInFlight > 0) and os.clock() < deadline do
 			task.wait(0.2)
 		end
 	end)

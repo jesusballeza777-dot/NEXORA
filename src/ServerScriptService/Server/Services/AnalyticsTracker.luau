@@ -9,6 +9,7 @@ local AnalyticsService = game:GetService("AnalyticsService")
 local RunService = game:GetService("RunService")
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local AnalyticsConfig = require(Shared.Config.Analytics)
+local AnalyticsFields = require(script.Parent.Parent.Util.AnalyticsFields)
 local Log = require(script.Parent.Parent.Util.Log).scope("Analytics")
 
 local AnalyticsTracker = {}
@@ -18,35 +19,26 @@ for i, name in ipairs(AnalyticsConfig.OnboardingFunnel) do
 	funnelIndex[name] = i
 end
 
-local function toCustomFields(fields: { [string]: any }?): { [string]: string }?
-	if not fields then
-		return nil
-	end
-	-- AnalyticsService admite hasta 3 campos personalizados de texto
-	local out = {}
-	local n = 0
-	for k, v in pairs(fields) do
-		n += 1
-		if n > 3 then
-			break
-		end
-		out[k] = tostring(v)
-	end
-	return out
-end
+-- Claves fijas de los campos personalizados (formato en Util/AnalyticsFields)
+local FIELD_KEYS = {
+	Enum.AnalyticsCustomFieldKeys.CustomField01.Name,
+	Enum.AnalyticsCustomFieldKeys.CustomField02.Name,
+	Enum.AnalyticsCustomFieldKeys.CustomField03.Name,
+}
 
 function AnalyticsTracker.log(player: Player, name: string, fields: { [string]: any }?)
 	if RunService:IsStudio() then
 		Log.debug("%s %s", name, if fields then tostring(next(fields)) else "")
 	end
+	local custom, value = AnalyticsFields.encode(fields, FIELD_KEYS)
 	local step = funnelIndex[name]
 	if step then
 		pcall(function()
-			AnalyticsService:LogOnboardingFunnelStepEvent(player, step, name, toCustomFields(fields) :: any)
+			AnalyticsService:LogOnboardingFunnelStepEvent(player, step, name, custom :: any)
 		end)
 	end
 	pcall(function()
-		AnalyticsService:LogCustomEvent(player, name, 1, toCustomFields(fields) :: any)
+		AnalyticsService:LogCustomEvent(player, name, value, custom :: any)
 	end)
 end
 

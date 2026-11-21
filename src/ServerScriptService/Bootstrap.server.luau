@@ -32,7 +32,7 @@ RemoteGateway.init({ data = PlayerDataService, world = WorldService, analytics =
 PlayerDataService.setPushRemote(RemoteGateway.push)
 GameplayService.init({ data = PlayerDataService, world = WorldService, gateway = RemoteGateway })
 BattleService.init({ data = PlayerDataService, gateway = RemoteGateway, analytics = AnalyticsTracker })
-DevService.init({ data = PlayerDataService, gateway = RemoteGateway })
+DevService.init({ data = PlayerDataService, world = WorldService, gateway = RemoteGateway })
 
 -- Al cargar un perfil: publicar estado público y, en Studio, activar el modo de prueba
 PlayerDataService.loaded.Event:Connect(function(player: Player, session: any)

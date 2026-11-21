@@ -45,6 +45,12 @@ function GameplayService.init(deps: { data: any, world: any, gateway: any })
 	world = deps.world
 	local gateway = deps.gateway
 
+	-- Reenvía la vista del perfil (el cliente la pide cuando ya escucha los mensajes)
+	gateway.register("Profile.Get", function(player)
+		data.pushProfile(player)
+		return { ok = true }
+	end)
+
 	gateway.register("Onboarding.FinishIntro", function(player, skipped: boolean)
 		return run(player, function(p, ctx)
 			return Actions.finishIntro(p, skipped, ctx)

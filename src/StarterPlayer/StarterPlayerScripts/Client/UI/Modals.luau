@@ -311,7 +311,7 @@ function Modals.hatchReveal(pet: any)
 			local name = box.Text
 			Modals.close()
 			if #name > 0 then
-				respond(Net.request("Pet.SetNickname", pet.id, string.sub(name, 1, Onboarding.MaxNicknameLength)))
+				respond(Net.request("Pet.SetNickname", pet.id, Kit.truncate(name, Onboarding.MaxNicknameLength)))
 			end
 			respond(Net.request("Hatch.Ack"), "Sigue la luz de copal hasta tu Lote Hogar.")
 		end, { LayoutOrder = o(), Parent = c })
@@ -327,7 +327,13 @@ function Modals.petSheet(petId: string?)
 	end
 	local sp = Species.ById[pet.speciesId]
 	Modals.open(function(c)
-		card(c, pet.speciesId, pet.form, pet.name, string.format("%s · %s · %s", pet.speciesName, sp.role, pet.form))
+		card(
+			c,
+			pet.speciesId,
+			pet.form,
+			Kit.escape(pet.name),
+			string.format("%s · %s · %s", pet.speciesName, sp.role, pet.form)
+		)
 		local frac = if pet.xpToNext > 0 then pet.xp / pet.xpToNext else 1
 		Kit.text(
 			string.format("Nivel <b>%d</b>   ·   XP %d / %d", pet.level, pet.xp, pet.xpToNext),
@@ -461,7 +467,7 @@ function Modals.sanctuary()
 			local pet = if petId then State.pet(petId) else nil
 			if pet then
 				row(c, {
-					Kit.text(string.format("Lugar %d · <b>%s</b> Nv %d", slot, pet.name, pet.level), 16),
+					Kit.text(string.format("Lugar %d · <b>%s</b> Nv %d", slot, Kit.escape(pet.name), pet.level), 16),
 					Kit.button("Retirar", "secondary", function()
 						respond(Net.request("Sanctuary.Remove", slot))
 						Modals.sanctuary()

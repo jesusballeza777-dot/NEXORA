@@ -213,7 +213,7 @@ function Hud.render(view: any)
 			Parent = companionCard,
 			Kit.list(Enum.FillDirection.Vertical, 2, Enum.HorizontalAlignment.Left),
 			Kit.text(
-				pet.name,
+				Kit.escape(pet.name),
 				17,
 				{ FontFace = Kit.Font.title, TextXAlignment = Enum.TextXAlignment.Left, LayoutOrder = 1 }
 			),

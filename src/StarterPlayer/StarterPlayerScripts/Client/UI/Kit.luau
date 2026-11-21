@@ -93,6 +93,25 @@ function Kit.panel(props: Props): Frame
 	return Kit.new("Frame", p)
 end
 
+-- Los textos usan RichText: todo dato que escribe un jugador (apodos) se escapa
+-- para que "<" o "&" se vean tal cual y no alteren el formato.
+local ESCAPES = { ["&"] = "&amp;", ["<"] = "&lt;", [">"] = "&gt;", ['"'] = "&quot;", ["'"] = "&apos;" }
+function Kit.escape(s: string): string
+	return (string.gsub(s, "[&<>\"']", ESCAPES))
+end
+
+-- Recorta a `maxChars` caracteres UTF-8 (nunca parte un acento o un emoji por la mitad).
+function Kit.truncate(s: string, maxChars: number): string
+	local len = utf8.len(s)
+	if not len then
+		return ""
+	end
+	if len <= maxChars then
+		return s
+	end
+	return string.sub(s, 1, (utf8.offset(s, maxChars + 1) :: number) - 1)
+end
+
 function Kit.text(text: string, size: number, props: Props?): TextLabel
 	local p = table.clone(props or {})
 	p.Text = text

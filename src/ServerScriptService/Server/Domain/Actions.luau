@@ -219,10 +219,17 @@ function Actions.finishEncounter(
 	won: boolean,
 	turns: number,
 	participants: { string },
-	ctx: Ctx
+	ctx: Ctx,
+	reason: string?
 ): Result.Result
-	local r = EncounterRules.applyResult(p, encounterId, battleId, won, participants, ctx)
-	local analytics = { { name = "battle_finished", fields = { encounter = encounterId, won = won, turns = turns } } }
+	local r = EncounterRules.applyResult(p, encounterId, battleId, won, participants, ctx, reason)
+	local analytics = {
+		-- turns es numérico: AnalyticsTracker lo usa como valor del evento
+		{
+			name = "battle_finished",
+			fields = { encounter = encounterId, won = won, reason = reason or "Defeat", turns = turns },
+		},
+	}
 	if r.ok then
 		first(p, analytics, "first_battle_completed", ctx.now, { encounter = encounterId, won = won })
 	end

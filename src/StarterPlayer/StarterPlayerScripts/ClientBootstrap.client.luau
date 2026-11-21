@@ -3,16 +3,23 @@
 -- El cliente nunca decide resultados: muestra la vista que envía el servidor y
 -- envía intenciones validadas en RemoteGateway.
 
+-- El mundo se replica completo antes de "Loaded" (StreamingEnabled = false, D-019)
+if not game:IsLoaded() then
+	game.Loaded:Wait()
+end
+
 local Client = script.Parent:WaitForChild("Client")
 local Net = require(Client.Net)
 local State = require(Client.State)
 local Hud = require(Client.UI.Hud)
+local Kit = require(Client.UI.Kit)
 local Modals = require(Client.UI.Modals)
 local WorldController = require(Client.Controllers.WorldController)
 local BattleController = require(Client.Controllers.BattleController)
 
 local introShown = false
 local hatchShown = false
+local lastStep: string? = nil
 local lastPetsSnapshot: { [string]: { level: number, bond: number } } = {}
 
 local function toast(text: string)
@@ -53,7 +60,7 @@ local function celebrate(view: any)
 		if before and (pet.level > before.level or pet.bond > before.bond) and pet.isCompanion then
 			WorldController.react(nil)
 			if pet.level > before.level then
-				Hud.toast("⬆", string.format("%s sube a nivel %d", pet.name, pet.level))
+				Hud.toast("⬆", string.format("%s sube a nivel %d", Kit.escape(pet.name), pet.level))
 			end
 		end
 		lastPetsSnapshot[pet.id] = { level = pet.level, bond = pet.bond }
@@ -66,6 +73,12 @@ Net.on("Profile", function(view)
 	WorldController.applyState(view)
 	celebrate(view)
 	local step = view.onboarding.step
+	if step == "Intro" and lastStep ~= nil and lastStep ~= "Intro" then
+		-- El perfil volvió a empezar (Dev.ResetProfile en Studio): repetir la bienvenida
+		introShown, hatchShown = false, false
+		table.clear(lastPetsSnapshot)
+	end
+	lastStep = step
 	if step == "Intro" and not introShown then
 		introShown = true
 		Hud.setVisible(false)
@@ -91,3 +104,5 @@ Net.on("Toast", function(payload)
 end)
 
 WorldController.start()
+-- Oyentes listos: se pide la vista por si el primer envío llegó antes de conectarlos
+Net.request("Profile.Get")

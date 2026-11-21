@@ -50,16 +50,29 @@ function RemoteGateway.register(action: string, handler: Handler)
 	handlers[action] = handler
 end
 
+-- Rechazos registrados en analítica: como mucho REJECT_LOG_PER_MINUTE por jugador y
+-- minuto, y nunca con texto enviado por el cliente (una acción desconocida es "Unknown").
+local REJECT_LOG_PER_MINUTE = 5
+local rejectLog: { [Player]: Guard.Window } = {}
+
 local function reject(player: Player, action: string, reason: string)
 	if deps.analytics then
-		deps.analytics.log(player, "remote_rejected", { action = action, reason = reason })
+		local now = os.clock()
+		local window = rejectLog[player] or Guard.newWindow(now)
+		rejectLog[player] = window
+		if Guard.allowInWindow(window, REJECT_LOG_PER_MINUTE, 60, now) then
+			deps.analytics.log(player, "remote_rejected", {
+				action = if Contract.Actions[action] then action else "Unknown",
+				reason = reason,
+			})
+		end
 	end
 	return { ok = false, err = reason }
 end
 
 local function handle(player: Player, action: any, seq: any, ...: any)
 	if type(action) ~= "string" or not Contract.Actions[action] or not handlers[action] then
-		return reject(player, tostring(action), "UnknownAction")
+		return reject(player, if type(action) == "string" then action else "?", "UnknownAction")
 	end
 	local spec = Contract.Actions[action]
 	if type(seq) ~= "number" or seq ~= seq or math.floor(seq) ~= seq or seq <= (lastSeq[player] or 0) then
@@ -124,6 +137,7 @@ function RemoteGateway.start()
 		lastSeq[player] = nil
 		buckets[player] = nil
 		busy[player] = nil
+		rejectLog[player] = nil
 	end)
 end
 

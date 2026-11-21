@@ -15,6 +15,9 @@ type Profile = Types.Profile
 
 local EncounterRules = {}
 
+-- Derrotas con XP de consolación por día (las victorias tienen su propio tope de repetición)
+EncounterRules.DAILY_CONSOLATION_LIMIT = 10
+
 function EncounterRules.isUnlocked(p: Profile, encounterId: string): boolean
 	local enc = Encounters.ById[encounterId]
 	if not enc then
@@ -110,7 +113,8 @@ function EncounterRules.applyResult(
 	battleId: string,
 	won: boolean,
 	participants: { string },
-	ctx: PetRules.Ctx
+	ctx: PetRules.Ctx,
+	reason: string?
 ): Result.Result
 	local enc = Encounters.ById[encounterId]
 	if not enc then
@@ -133,7 +137,20 @@ function EncounterRules.applyResult(
 	end
 
 	if not won then
-		-- Derrota: XP de consolación directa (sin pantalla de recompensa)
+		-- Retirarse nunca da premio (si no, empezar y huir sería una granja de XP).
+		if reason == "Forfeit" then
+			return Result.ok({ won = false, forfeited = true })
+		end
+		-- Derrota real: XP de consolación directa, con tope diario
+		local today = dayIndex(ctx.now)
+		if (p.counters.lossXpDay or 0) ~= today then
+			p.counters.lossXpDay = today
+			p.counters.lossXpCount = 0
+		end
+		if (p.counters.lossXpCount or 0) >= EncounterRules.DAILY_CONSOLATION_LIMIT then
+			return Result.ok({ won = false, capped = true })
+		end
+		p.counters.lossXpCount = (p.counters.lossXpCount or 0) + 1
 		local results = {}
 		for _, petId in ipairs(participants) do
 			local pet = p.pets[petId]

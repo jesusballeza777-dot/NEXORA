@@ -6,6 +6,8 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Contract = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Net"):WaitForChild("Contract"))
 
+local PushBuffer = require(script.Parent.PushBuffer)
+
 local Net = {}
 
 local folder = ReplicatedStorage:WaitForChild(Contract.RemoteFolder)
@@ -13,7 +15,6 @@ local request = folder:WaitForChild(Contract.RequestName) :: RemoteFunction
 local push = folder:WaitForChild(Contract.PushName) :: RemoteEvent
 
 local seq = 0
-local listeners: { [string]: { (any) -> () } } = {}
 
 export type Response = { ok: boolean, err: string?, data: any? }
 
@@ -30,14 +31,22 @@ function Net.request(action: string, ...: any): Response
 	return result :: Response
 end
 
+-- Los mensajes que llegan antes de tener oyente se guardan (ver PushBuffer)
+local buffer = PushBuffer.new({
+	latestOnly = { Contract.Push.Profile },
+	maxPending = 32,
+	spawn = function(fn, payload)
+		task.spawn(fn, payload)
+	end,
+})
+
 function Net.on(kind: string, fn: (any) -> ())
-	listeners[kind] = listeners[kind] or {}
-	table.insert(listeners[kind], fn)
+	buffer.on(kind, fn)
 end
 
 push.OnClientEvent:Connect(function(kind: string, payload: any)
-	for _, fn in ipairs(listeners[kind] or {}) do
-		task.spawn(fn, payload)
+	if type(kind) == "string" then
+		buffer.push(kind, payload)
 	end
 end)
 
