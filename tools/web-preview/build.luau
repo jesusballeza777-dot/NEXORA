@@ -122,4 +122,24 @@ html = inject(html, "/*__NEXORA_ENGINE__*/", engine)
 html = inject(html, "/*__NEXORA_GAME__*/", game)
 fs.writeDir(ROOT .. "tools/web-preview/dist")
 fs.writeFile(ROOT .. "tools/web-preview/dist/NEXORA_Preview.html", html)
+
+-- Variante para Artifact de claude.ai: el visor aporta doctype/head/body propios
+local fragment = html
+for _, tag in ipairs({
+	"<!doctype html>\n",
+	'<html lang="es">\n',
+	"<head>\n",
+	"</head>\n",
+	"<body>\n",
+	"</body>\n",
+	"</html>\n",
+}) do
+	local i, j = string.find(fragment, tag, 1, true)
+	if i then
+		fragment = string.sub(fragment, 1, i - 1) .. string.sub(fragment, (j :: number) + 1)
+	end
+end
+fragment = string.gsub(fragment, '<meta charset="utf%-8">\n', "", 1)
+fragment = string.gsub(fragment, '<meta name="viewport"[^\n]*\n', "", 1)
+fs.writeFile(ROOT .. "build/web/NEXORA_Preview.artifact.html", fragment)
 print(string.format("Vista previa: %d KB · %d combates de referencia", math.floor(#html / 1024), #cases))

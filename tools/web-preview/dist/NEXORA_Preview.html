@@ -21,10 +21,9 @@
   --font-body: "Nunito", system-ui, sans-serif;
   color-scheme: dark;
 }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --panel: rgba(32, 21, 16, 0.92); } }
-:root[data-theme="dark"] { --panel: rgba(32, 21, 16, 0.92); }
+/* Diseño de un solo tema (oscuro) a propósito: es un juego a pantalla completa. */
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-html, body { margin: 0; height: 100%; overflow: hidden; background: #2b1d16; color: var(--cream); font-family: var(--font-body); touch-action: none; user-select: none; -webkit-user-select: none; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: var(--cocoa-800); color: var(--cream); font-family: var(--font-body); touch-action: none; user-select: none; -webkit-user-select: none; }
 canvas#scene { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
 button { font-family: var(--font-title); color: var(--cream); cursor: pointer; border: 0; }
 .hidden { display: none !important; }
@@ -1798,7 +1797,11 @@ function openNexoMenu() {
       m.querySelector("#rewards")?.addEventListener("click", () => { closeModal(); showReward(pend[0].id); });
       m.querySelectorAll("[data-go]").forEach((b) => b.addEventListener("click", () => { const d = dests.find((x) => x.id === b.dataset.go); if (d.locked) return toast("🔒", "Elige primero tu huevo."); closeModal(); player.position.set(d.pos.x, 0, d.pos.z); if (companionModel) companionModel.position.copy(player.position).add(V(3, 0, 3)); }));
       m.querySelector("#dev").addEventListener("click", () => { DEV.xp = !DEV.xp; saveDev(); openNexoMenu(); });
-      m.querySelector("#reset").addEventListener("click", () => { if (confirm("¿Borrar la partida de esta vista previa?")) { localStorage.removeItem(SAVE_KEY); location.reload(); } });
+      const reset = m.querySelector("#reset");
+      reset.addEventListener("click", () => {
+        if (reset.dataset.armed) { try { localStorage.removeItem(SAVE_KEY); } catch (e) { /* sin almacenamiento */ } P = newProfile(); location.reload(); return; }
+        reset.dataset.armed = "1"; reset.textContent = "¿Seguro? Toca otra vez";
+      });
     });
 }
 function openAlbum() {

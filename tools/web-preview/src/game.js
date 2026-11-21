@@ -1032,7 +1032,11 @@ function openNexoMenu() {
       m.querySelector("#rewards")?.addEventListener("click", () => { closeModal(); showReward(pend[0].id); });
       m.querySelectorAll("[data-go]").forEach((b) => b.addEventListener("click", () => { const d = dests.find((x) => x.id === b.dataset.go); if (d.locked) return toast("🔒", "Elige primero tu huevo."); closeModal(); player.position.set(d.pos.x, 0, d.pos.z); if (companionModel) companionModel.position.copy(player.position).add(V(3, 0, 3)); }));
       m.querySelector("#dev").addEventListener("click", () => { DEV.xp = !DEV.xp; saveDev(); openNexoMenu(); });
-      m.querySelector("#reset").addEventListener("click", () => { if (confirm("¿Borrar la partida de esta vista previa?")) { localStorage.removeItem(SAVE_KEY); location.reload(); } });
+      const reset = m.querySelector("#reset");
+      reset.addEventListener("click", () => {
+        if (reset.dataset.armed) { try { localStorage.removeItem(SAVE_KEY); } catch (e) { /* sin almacenamiento */ } P = newProfile(); location.reload(); return; }
+        reset.dataset.armed = "1"; reset.textContent = "¿Seguro? Toca otra vez";
+      });
     });
 }
 function openAlbum() {

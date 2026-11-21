@@ -21,10 +21,9 @@
   --font-body: "Nunito", system-ui, sans-serif;
   color-scheme: dark;
 }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --panel: rgba(32, 21, 16, 0.92); } }
-:root[data-theme="dark"] { --panel: rgba(32, 21, 16, 0.92); }
+/* Diseño de un solo tema (oscuro) a propósito: es un juego a pantalla completa. */
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-html, body { margin: 0; height: 100%; overflow: hidden; background: #2b1d16; color: var(--cream); font-family: var(--font-body); touch-action: none; user-select: none; -webkit-user-select: none; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: var(--cocoa-800); color: var(--cream); font-family: var(--font-body); touch-action: none; user-select: none; -webkit-user-select: none; }
 canvas#scene { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
 button { font-family: var(--font-title); color: var(--cream); cursor: pointer; border: 0; }
 .hidden { display: none !important; }
