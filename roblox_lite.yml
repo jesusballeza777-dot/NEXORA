@@ -1,0 +1,41 @@
+# Estándar mínimo para Selene sin descargar el API dump de Roblox.
+# En la máquina del equipo se recomienda `selene generate-roblox-std` y std = "roblox".
+base: luau
+name: roblox_lite
+globals:
+  game: { any: true }
+  workspace: { any: true }
+  script: { any: true }
+  plugin: { any: true }
+  shared: { any: true }
+  task: { any: true }
+  warn: { args: [ { type: "..." } ] }
+  tick: { args: [] }
+  time: { args: [] }
+  typeof: { args: [ { type: any } ] }
+  Instance: { any: true }
+  Enum: { any: true }
+  Vector2: { any: true }
+  Vector3: { any: true }
+  CFrame: { any: true }
+  Color3: { any: true }
+  ColorSequence: { any: true }
+  ColorSequenceKeypoint: { any: true }
+  NumberSequence: { any: true }
+  NumberSequenceKeypoint: { any: true }
+  NumberRange: { any: true }
+  UDim: { any: true }
+  UDim2: { any: true }
+  TweenInfo: { any: true }
+  Rect: { any: true }
+  Ray: { any: true }
+  RaycastParams: { any: true }
+  OverlapParams: { any: true }
+  Random: { any: true }
+  DateTime: { any: true }
+  Font: { any: true }
+  PhysicalProperties: { any: true }
+  BrickColor: { any: true }
+  Region3: { any: true }
+  utf8: { any: true }
+  harness: { any: true }

@@ -1,0 +1,15 @@
+# Lugares compilados por Rojo (se regeneran con `rojo build`)
+*.rbxl
+*.rbxlx
+*.rbxm
+*.rbxmx
+!assets/**/*.rbxm
+!assets/**/*.rbxmx
+build/
+# Mapa de fuentes para luau-lsp (se regenera con `rojo sourcemap`)
+sourcemap.json
+# Varios
+.DS_Store
+node_modules/
+*.log
+tools/web-preview/dist/*.tmp
