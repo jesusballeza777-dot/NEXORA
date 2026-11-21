@@ -1,5 +1,9 @@
+# Lint de Luau. "roblox_lite.yml" declara los globales del motor sin descargar el API
+# dump; en una máquina con red se recomienda `selene generate-roblox-std` + std="roblox".
 std = "roblox_lite"
 exclude = ["tools/**"]
 
 [lints]
 shadowing = "allow"
+# Client/UI/Kit.new recibe propiedades y, con índices numéricos, los hijos de la instancia.
+mixed_table = "allow"
