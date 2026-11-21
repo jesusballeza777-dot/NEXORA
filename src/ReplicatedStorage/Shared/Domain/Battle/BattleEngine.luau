@@ -504,9 +504,9 @@ function BattleEngine.computeDamage(
 	end
 	-- Bonos condicionales de la propia jugada
 	for _, eff in ipairs(move.effects) do
-		if eff.type == "BonusIfTargetStatus" and eff.statuses and hasStatus(target, eff.statuses) then
-			dmg *= 1 + (eff.amount or 0)
-		elseif eff.type == "BonusIfHitLastTurn" and attacker.wasHitLastTurn then
+		local applies = (eff.type == "BonusIfTargetStatus" and eff.statuses ~= nil and hasStatus(target, eff.statuses))
+			or (eff.type == "BonusIfHitLastTurn" and attacker.wasHitLastTurn)
+		if applies then
 			dmg *= 1 + (eff.amount or 0)
 		end
 	end

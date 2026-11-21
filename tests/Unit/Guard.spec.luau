@@ -1,0 +1,67 @@
+--!strict
+local T = harness.T
+local expect = T.expect
+local Guard = harness.get("ServerScriptService.Server.Util.Guard")
+local Contract = harness.get("ReplicatedStorage.Shared.Net.Contract")
+local ProfileView = harness.get("ServerScriptService.Server.Domain.ProfileView")
+local ProfileSchema = harness.get("ServerScriptService.Server.Domain.ProfileSchema")
+local Actions = harness.get("ServerScriptService.Server.Domain.Actions")
+
+T.describe("Validación de argumentos remotos", function()
+	local feed = Contract.Actions["Care.Feed"].args
+	T.it("acepta argumentos correctos", function()
+		expect(Guard.checkArgs(feed, { "U1-1", "RacionBasica" })).toBe(true)
+	end)
+	T.it("rechaza tipos incorrectos, vacíos, largos y argumentos extra", function()
+		local ok, why = Guard.checkArgs(feed, { 5, "RacionBasica" })
+		expect(ok).toBe(false)
+		expect(why).toBe("Arg1NotString")
+		expect(select(2, Guard.checkArgs(feed, { "", "x" }))).toBe("Arg1BadLength")
+		expect(select(2, Guard.checkArgs(feed, { string.rep("a", 200), "x" }))).toBe("Arg1BadLength")
+		expect(select(2, Guard.checkArgs(feed, { "a", "b", "c" }))).toBe("TooManyArgs")
+	end)
+	T.it("rechaza enteros fuera de rango, NaN y decimales", function()
+		local place = Contract.Actions["Sanctuary.Place"].args
+		expect(select(2, Guard.checkArgs(place, { "p", 5 }))).toBe("Arg2OutOfRange")
+		expect(select(2, Guard.checkArgs(place, { "p", 1.5 }))).toBe("Arg2NotInt")
+		expect(select(2, Guard.checkArgs(place, { "p", 0 / 0 }))).toBe("Arg2NotInt")
+	end)
+	T.it("ninguna acción acepta cantidades de moneda, daño o premios del cliente", function()
+		for name in pairs(Contract.Actions) do
+			local lower = string.lower(name)
+			expect(string.find(lower, "damage") == nil and string.find(lower, "setcoins") == nil).toBe(true)
+		end
+	end)
+end)
+
+T.describe("Límite de frecuencia (cubeta de fichas)", function()
+	T.it("permite ráfaga y luego bloquea hasta reponer", function()
+		local b = Guard.newBucket(3, 0)
+		expect(Guard.take(b, 3, 1, 0)).toBe(true)
+		expect(Guard.take(b, 3, 1, 0)).toBe(true)
+		expect(Guard.take(b, 3, 1, 0)).toBe(true)
+		expect(Guard.take(b, 3, 1, 0)).toBe(false)
+		expect(Guard.take(b, 3, 1, 1.01)).toBe(true)
+	end)
+end)
+
+T.describe("Vista del perfil para el cliente", function()
+	T.it("no expone el registro de recompensas y calcula datos derivados", function()
+		local now = 1_800_000_000
+		local p = ProfileSchema.new(3, now)
+		Actions.onLoad(p, { now = now })
+		Actions.finishIntro(p, false, { now = now })
+		Actions.chooseStarter(p, "EggBarro", { now = now })
+		local view = ProfileView.build(p, now)
+		expect(view.rewards).toBe(nil)
+		expect(view.ledger).toBe(nil)
+		expect(#view.pets).toBe(1)
+		local pet = view.pets[1]
+		expect(pet.name).toBe("Xolumi")
+		expect(pet.xpToNext).toBe(40)
+		expect(pet.objective.kind).toBe("ReachTalladoLevel")
+		expect(pet.isCompanion).toBe(true)
+		expect(view.onboarding.step).toBe("Hatch")
+		expect(view.encounters.valle_r1_e1.opponent).toBe("comalu")
+	end)
+end)
