@@ -78,7 +78,7 @@ Concepto → Revisión humana → Aprobado → Modelado → Rig → Animación �
 | 4 | **Modelado** | 2D aprobado + gasto de créditos aprobado | Malla base (imagen a 3D multivista o modelado manual) → retopología, UV, talla horneada a normales, LOD (Biblia p. 120) dentro del presupuesto | Técnico 3D; Meshy como apoyo | ✔ gasto de créditos |
 | 5 | **Rig** | Malla limpia | Esqueleto propio (no R15), pesos ≤ 4 influencias, nombres de huesos y anexos según `PRODUCTION_SPECS.md` §7 | Técnico 3D | — |
 | 6 | **Animación** | Rig | Juego de animaciones de la forma (`PRODUCTION_SPECS.md` §8) con los tiempos tope de la Biblia | Animación | — |
-| 7 | **Importación** | FBX/GLB validado | Modelo en Studio con MeshPart, SurfaceAppearance, Animator y la estructura de carpetas de §9 | Claude + Studio | — |
+| 7 | **Importación** | FBX/GLB validado | Modelo en Studio con MeshPart, SurfaceAppearance, Animator y la estructura de `PRODUCTION_SPECS.md` §9.4 | Claude + Studio | — |
 | 8 | **Validación en Studio** | Modelo importado | Escala, materiales, aura, gama baja; **8 monstruos con aura a 30 fps en el teléfono base** antes de aprobar un Legendario (Biblia p. 120); `tests/Playtest/STUDIO_PLAYTEST.md` | QA + dirección creativa | ✔ **activo aprobado** |
 
 Solo tras el paso 8, y en el mismo cambio:
@@ -122,8 +122,8 @@ que se le abra uno.
 Orden de producción 3D (Biblia p. 120): 1) Kuachi, Xolumi y Teselo (Brote y Tallado) para validar el
 pipeline → 2) moneda, gema, seis cofres, incubadora y huevos por rareza → 3) Papalumen y Nexum (marketing)
 → 4) resto del Valle Copal y Copalia → 5) Cumbre Brasa con Obsidárion; Velo Astral con Noctelia.
-La prioridad de beta de la matriz sigue este orden y adelanta los Opacos del Acto I que ya usa el
-vertical slice.
+La prioridad de beta de la matriz sigue este orden y adelanta los rivales del Acto I de la beta (los
+del vertical slice y los cuatro con blockout provisional).
 
 **Primer paso (Biblia p. 118):** Lote A. Cuando se apruebe, se congela el estilo y el resto de los lotes
 avanza en paralelo.

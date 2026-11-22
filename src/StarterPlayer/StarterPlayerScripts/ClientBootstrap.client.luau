@@ -16,6 +16,12 @@ local Kit = require(Client.UI.Kit)
 local Modals = require(Client.UI.Modals)
 local WorldController = require(Client.Controllers.WorldController)
 local BattleController = require(Client.Controllers.BattleController)
+local QuickMenu = require(Client.UI.QuickMenu)
+local LotController = require(Client.Controllers.LotController)
+local Ceremony = require(Client.UI.Ceremony)
+local Encounters = require(game:GetService("ReplicatedStorage").Shared.Config.Encounters)
+local Breeding = require(Client.UI.Screens.Breeding)
+local Adventure = require(Client.UI.Screens.Adventure)
 
 local introShown = false
 local hatchShown = false
@@ -33,15 +39,30 @@ Hud.init({
 	end,
 	openSanctuary = Modals.sanctuary,
 	openNexo = function()
-		Modals.nexoMenu(Modals.reward)
+		QuickMenu.open(function()
+			Modals.nexoMenu(Modals.reward)
+		end, Modals.sanctuary)
 	end,
 })
+local stations: { [string]: () -> () } = {
+	Despensa = Modals.shop,
+	Criadero = Breeding.incubator,
+	Tablon = Breeding.quests,
+	RepisaCofres = Breeding.chests,
+	Mirador = Adventure.map,
+}
 WorldController.init({
 	confirmEgg = Modals.confirmEgg,
 	openNexo = function()
 		Modals.nexoMenu(Modals.reward)
 	end,
 	openShop = Modals.shop,
+	openStation = function(stationId: string?)
+		local open = stationId and stations[stationId]
+		if open then
+			open()
+		end
+	end,
 	openSanctuary = Modals.sanctuary,
 	toast = toast,
 })
@@ -49,6 +70,15 @@ BattleController.init({
 	suspendWorld = WorldController.suspend,
 	setHud = Hud.setVisible,
 	showReward = Modals.reward,
+	-- Resultado de etapa: estrellas y premios; luego la recompensa por reclamar
+	showStageResult = function(payload)
+		local enc = Encounters.ById[payload.encounterId]
+		Ceremony.stageResult(enc.name, payload.result, function()
+			if payload.result.rewardId then
+				Modals.reward(payload.result.rewardId)
+			end
+		end)
+	end,
 	toast = toast,
 	elementColor = Modals.ElementColor,
 })
@@ -104,5 +134,6 @@ Net.on("Toast", function(payload)
 end)
 
 WorldController.start()
+LotController.start()
 -- Oyentes listos: se pide la vista por si el primer envío llegó antes de conectarlos
 Net.request("Profile.Get")

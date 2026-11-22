@@ -31,6 +31,13 @@ local names = {
 	"Visuals",
 	"Guardians",
 	"World",
+	-- Fase 2
+	"Incubation",
+	"Chests",
+	"Quests",
+	"Codex",
+	"Decor",
+	"SpeciesLore",
 }
 local config = {}
 for _, name in ipairs(names) do

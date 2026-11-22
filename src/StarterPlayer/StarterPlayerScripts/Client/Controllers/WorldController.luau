@@ -85,8 +85,9 @@ local function onPrompt(prompt: ProximityPrompt)
 		handlers.openNexo(nil)
 	elseif name == "EncounterPrompt" then
 		startEncounterAt(parent)
-	elseif name == "Station" and parent:GetAttribute("StationId") == "Despensa" then
-		handlers.openShop(nil)
+	elseif name == "Station" then
+		-- Cada estación de la Torre abre su pantalla (mismas que el acceso rápido)
+		handlers.openStation(parent:GetAttribute("StationId"))
 	elseif name == "CollectPrompt" then
 		local r = Net.request("Sanctuary.Collect")
 		handlers.toast(if r.ok then string.format("+%d Monedas", r.data.coins) else Net.message(r.err))

@@ -13,11 +13,16 @@ local Rarities = require(Config:WaitForChild("Rarities"))
 local Elements = require(Config:WaitForChild("Elements"))
 local Onboarding = require(Config:WaitForChild("Onboarding"))
 local Encounters = require(Config:WaitForChild("Encounters"))
+local SpeciesLore = require(Config:WaitForChild("SpeciesLore"))
+local Progression = require(Config:WaitForChild("Progression"))
+local Chests = require(Config:WaitForChild("Chests"))
+local Decor = require(Config:WaitForChild("Decor"))
 
 local Kit = require(script.Parent.Kit)
 local CreatureBuilder = require(script.Parent.Parent.Creatures.CreatureBuilder)
 local Net = require(script.Parent.Parent.Net)
 local State = require(script.Parent.Parent.State)
+local Ceremony = require(script.Parent.Ceremony)
 
 local Modals = {}
 
@@ -358,10 +363,17 @@ function Modals.petSheet(petId: string?)
 		if pet.canEvolve then
 			Kit.button("✨ Tallar en " .. sp.talladoName, "primary", function()
 				Modals.close()
+				local before = pet.formStats
 				local r = Net.request("Pet.Evolve", pet.id)
 				respond(r)
 				if r.ok then
-					Modals.evolved(pet.speciesId)
+					-- Ceremonia: aviso → animación → luz → revelación → cambios
+					local after = nil
+					local fresh = State.pet(pet.id)
+					if fresh and fresh.form == "Tallado" then
+						after = fresh.formStats
+					end
+					Ceremony.evolve(pet.speciesId, before, after)
 				end
 			end, { LayoutOrder = o(), Parent = c })
 		end
@@ -424,11 +436,29 @@ function Modals.petSheet(petId: string?)
 				}),
 			})
 		end
-		local talent = Talents.ById[sp.talent]
-		local sig = Abilities.ById[sp.signature]
-		sub(c, string.format("<b>Talento · %s</b>\n%s", talent.name, talent.text))
-		sub(c, string.format("<b>Firma · %s</b>\n%s", sig.name, sig.text))
-		sub(c, "<b>Mezcla mítica</b>\n" .. (sp.mythicMix or ""))
+		-- Las especies del catálogo pueden no tener aún talento/firma definidos en la config
+		local talent = if sp.talent then Talents.ById[sp.talent] else nil
+		local sig = if sp.signature then Abilities.ById[sp.signature] else nil
+		if talent then
+			sub(c, string.format("<b>Talento · %s</b>\n%s", talent.name, talent.text))
+		end
+		if sig then
+			sub(c, string.format("<b>Firma · %s</b>\n%s", sig.name, sig.text))
+		end
+		local lore = SpeciesLore.ById[pet.speciesId]
+		sub(c, "<b>Mezcla mítica</b>\n" .. (sp.mythicMix or (if lore then lore.mythicMix else "")))
+		if pet.form == "Brote" then
+			sub(
+				c,
+				string.format(
+					"<b>Próximo hito</b> · Tallado a nivel %d con %d corazones de Vínculo",
+					pet.talladoLevel,
+					Progression.Bond.TallarRequiredHearts
+				)
+			)
+		elseif pet.level < pet.nexoLevel then
+			sub(c, string.format("<b>Próximo hito</b> · Golpe Nexo a nivel %d", pet.nexoLevel))
+		end
 		sub(c, "Modelo provisional (blockout). El diseño final pasa por el pipeline de arte y aprobación humana.")
 	end)
 end
@@ -613,6 +643,21 @@ function Modals.reward(rewardId: string)
 		if reward.petXp > 0 then
 			table.insert(lines, string.format("⭐  %d XP para tu equipo", reward.petXp))
 		end
+		for _, chest in ipairs(reward.chests or {}) do
+			table.insert(lines, "🎁  " .. Chests.ById[chest].name)
+		end
+		for _, sp in ipairs(reward.eggs or {}) do
+			table.insert(lines, "🥚  Huevo de " .. Species.ById[sp].broteName)
+		end
+		for _, d in ipairs(reward.decor or {}) do
+			table.insert(lines, "🪴  " .. Decor.ById[d].name)
+		end
+		for _, t in ipairs(reward.titles or {}) do
+			table.insert(lines, "🏅  Título: " .. t)
+		end
+		for _, f in ipairs(reward.frames or {}) do
+			table.insert(lines, "🖼  Marco: " .. f)
+		end
 		for _, line in ipairs(lines) do
 			Kit.panel({
 				Size = UDim2.new(1, 0, 0, 48),
@@ -637,5 +682,16 @@ Modals.ElementColor = function(element: string): Color3
 	local c = Elements.ById[element].color
 	return Color3.fromRGB(c[1], c[2], c[3])
 end
+
+-- Ayudantes compartidos con las pantallas de la Fase 2 (UI/Screens/*)
+Modals.UI = {
+	title = title,
+	sub = sub,
+	row = row,
+	respond = respond,
+	card = card,
+	order = o,
+	foodIcon = FOOD_ICON,
+}
 
 return Modals

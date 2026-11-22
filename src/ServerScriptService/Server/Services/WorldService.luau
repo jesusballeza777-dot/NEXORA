@@ -107,10 +107,32 @@ function WorldService.publish(player: Player, view: { [string]: any })
 			habitat[tostring(pet.slot)] = { speciesId = pet.speciesId, form = pet.form, petId = pet.id }
 		end
 	end
+	-- Fase 2: decoración, vitrina e incubadora (estado público del lote, solo lectura)
+	local showcase = {}
+	for _, petId in ipairs(view.showcase or {}) do
+		for _, pet in ipairs(view.pets) do
+			if pet.id == petId then
+				table.insert(showcase, { speciesId = pet.speciesId, form = pet.form, rarity = pet.rarity })
+			end
+		end
+	end
+	local incubator = nil
+	local slot1 = view.incubators and view.incubators[1]
+	if slot1 and slot1.eggId then
+		incubator = {
+			speciesId = slot1.speciesId,
+			rarity = slot1.rarity,
+			startedAt = slot1.startedAt,
+			readyAt = slot1.readyAt,
+		}
+	end
 	local e = entry :: Configuration
 	e:SetAttribute("LotIndex", lotOf[player])
 	e:SetAttribute("Companion", if companion then HttpService:JSONEncode(companion) else "")
 	e:SetAttribute("Habitat", HttpService:JSONEncode(habitat))
+	e:SetAttribute("Decor", HttpService:JSONEncode(view.decor and view.decor.slots or {}))
+	e:SetAttribute("Showcase", HttpService:JSONEncode(showcase))
+	e:SetAttribute("Incubator", if incubator then HttpService:JSONEncode(incubator) else "")
 end
 
 -- Proximidad física validada en el servidor (Contract.near).

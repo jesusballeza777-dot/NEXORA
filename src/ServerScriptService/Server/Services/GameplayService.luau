@@ -28,6 +28,18 @@ local function run(player: Player, fn: (any, any) -> any)
 	return result
 end
 
+-- Lista "id,id,id" del cliente (máximo 3 ids no vacíos); el dominio valida propiedad.
+local function splitIds(list: string): { string }?
+	local ids = {}
+	for id in string.gmatch(list, "[^,]+") do
+		if #ids >= 3 or #id > 32 then
+			return nil
+		end
+		table.insert(ids, id)
+	end
+	return ids
+end
+
 -- Filtra un apodo con TextService. Si el filtro falla, se rechaza (nunca se guarda sin filtrar).
 local function filterNickname(player: Player, raw: string): string?
 	local ok, filtered = pcall(function()
@@ -132,6 +144,84 @@ function GameplayService.init(deps: { data: any, world: any, gateway: any })
 
 	gateway.register("World.Travel", function(player, destination: string)
 		return world.travel(player, destination)
+	end)
+
+	-- ===================== Fase 2 =====================
+	gateway.register("Egg.Incubate", function(player, eggId: string, slot: number)
+		return run(player, function(p, ctx)
+			return Actions.startIncubation(p, eggId, slot, ctx)
+		end)
+	end)
+	gateway.register("Egg.Hatch", function(player, slot: number)
+		return run(player, function(p, ctx)
+			return Actions.hatchEgg(p, slot, ctx)
+		end)
+	end)
+	gateway.register("Incubator.BuySlot", function(player, slot: number)
+		return run(player, function(p, ctx)
+			return Actions.buyIncubatorSlot(p, slot, ctx)
+		end)
+	end)
+	gateway.register("Chest.Open", function(player, chestId: string)
+		return run(player, function(p, ctx)
+			return Actions.openChest(p, chestId, ctx)
+		end)
+	end)
+	gateway.register("Quest.Claim", function(player, kind: string, index: number)
+		if kind ~= "Daily" and kind ~= "Weekly" then
+			return { ok = false, err = "UnknownQuest" }
+		end
+		return run(player, function(p, ctx)
+			return Actions.claimQuest(p, kind, index, ctx)
+		end)
+	end)
+	gateway.register("Adventure.Treasure", function(player, stageId: string, element: string)
+		return run(player, function(p, ctx)
+			return Actions.solveTreasure(p, stageId, element, ctx)
+		end)
+	end)
+	gateway.register("Team.Set", function(player, list: string)
+		local ids = splitIds(list)
+		if not ids then
+			return { ok = false, err = "BadTeamSize" }
+		end
+		return run(player, function(p, ctx)
+			return Actions.setTeam(p, ids, ctx)
+		end)
+	end)
+	gateway.register("Sanctuary.PlaceDecor", function(player, slot: number, decorId: string)
+		return run(player, function(p, ctx)
+			return Actions.placeDecor(p, slot, decorId, ctx)
+		end)
+	end)
+	gateway.register("Sanctuary.ClearDecor", function(player, slot: number)
+		return run(player, function(p, ctx)
+			return Actions.placeDecor(p, slot, nil, ctx)
+		end)
+	end)
+	gateway.register("Sanctuary.Template", function(player, templateId: string)
+		return run(player, function(p, ctx)
+			return Actions.applyDecorTemplate(p, templateId, ctx)
+		end)
+	end)
+	gateway.register("Sanctuary.Showcase", function(player, list: string)
+		local ids = splitIds(list)
+		if not ids then
+			return { ok = false, err = "TooManyPets" }
+		end
+		return run(player, function(p, ctx)
+			return Actions.setShowcase(p, ids, ctx)
+		end)
+	end)
+	gateway.register("Sanctuary.Expand", function(player)
+		return run(player, function(p, ctx)
+			return Actions.expandInventory(p, ctx)
+		end)
+	end)
+	gateway.register("Title.Equip", function(player, titleId: string)
+		return run(player, function(p, ctx)
+			return Actions.equipTitle(p, if titleId == "none" then nil else titleId, ctx)
+		end)
 	end)
 end
 

@@ -20,6 +20,7 @@ local sandbox = RobloxSandbox.new()
 local CreatureBuilder = sandbox.load("StarterPlayerScripts.Client.Creatures.CreatureBuilder")
 local Visuals = VirtualGame.get("ReplicatedStorage.Shared.Config.Visuals")
 local Species = VirtualGame.get("ReplicatedStorage.Shared.Config.Species")
+local Guardians = VirtualGame.get("ReplicatedStorage.Shared.Config.Guardians")
 
 local function shapeOf(part: any): string
 	local mesh = part:FindFirstChildOfClass("SpecialMesh")
@@ -72,11 +73,15 @@ for _, id in ipairs(ids) do
 					})
 				end
 				local sp = Species.ById[id]
+				local guardian = Guardians.ById[id]
 				table.insert(creatures, {
 					id = id,
 					form = form,
 					opaco = opaco,
-					name = if form == "Tallado" then sp.talladoName else sp.broteName,
+					name = if guardian
+						then guardian.shortName
+						elseif form == "Tallado" then sp.talladoName
+						else sp.broteName,
 					parts = parts,
 				})
 				c:destroy()

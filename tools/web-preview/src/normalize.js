@@ -13,6 +13,13 @@
     for (const s of Object.values(cfg.Species.ById)) s.elements = asArray(s.elements);
     for (const t of Object.values(cfg.Talents.ById)) if (t.elements) t.elements = asArray(t.elements);
     for (const r of Object.values(cfg.Rewards.ById)) r.unlocks = asArray(r.unlocks);
+    // Fase 2: etapas sin rivales (Tesoro), sin requisitos (primera) y listas opcionales
+    for (const e of Object.values(cfg.Encounters.ById)) {
+      e.opponents = asArray(e.opponents);
+      e.requires = asArray(e.requires);
+      if (e.firstClearCodex) e.firstClearCodex = asArray(e.firstClearCodex);
+    }
+    if (cfg.Chests) for (const c of Object.values(cfg.Chests.ById)) if (c.fixed) c.fixed.eggs = asArray(c.fixed.eggs);
     return cfg;
   }
   const api = { normalizeConfig };

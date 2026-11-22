@@ -7,6 +7,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
+local Lighting = game:GetService("Lighting")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local World = require(Shared.Config:WaitForChild("World"))
@@ -78,6 +79,30 @@ local function card(c: any, mine: boolean, parent: Instance, anchor: Vector2, po
 	end
 	for _, m in ipairs(c.mods) do
 		table.insert(statuses, string.format("%s %s", m.stat, if m.amount > 0 then "▲" else "▼"))
+	end
+	-- Regla del Valle: raíces visibles para entender por qué se cura
+	if c.rooted then
+		table.insert(statuses, "🌿 Raíces: se cura cada turno (un golpe eficaz las corta)")
+	end
+	if c.phase and c.phase > 1 then
+		table.insert(statuses, "🏮 Fase " .. tostring(c.phase))
+	end
+	if mine and battle and battle.snapshot.fieldAccuracy and battle.snapshot.fieldAccuracy[1] < 0 then
+		table.insert(
+			statuses,
+			string.format(
+				"Faroles apagados: %d %% precisión",
+				math.floor(battle.snapshot.fieldAccuracy[1] * 100 + 0.5)
+			)
+		)
+	end
+	local side = if battle then battle.snapshot.sides[if mine then 1 else 2] else nil
+	if side and #side.team > 1 then
+		local dots = {}
+		for _, m in ipairs(side.team) do
+			table.insert(dots, if m.fainted then "○" else "●")
+		end
+		table.insert(statuses, 1, "Equipo " .. table.concat(dots, ""))
 	end
 	local bar = Kit.bar(pct, color, 12)
 	local frame = Kit.panel({
@@ -215,15 +240,22 @@ function BattleController.render(caption: string?)
 	end
 end
 
+-- Construye el modelo de un combatiente (los Seres Sagrados usan su propio blockout)
+local function buildFor(c: any, isFoe: boolean): Creature
+	local id = c.guardianId or c.speciesId
+	return CreatureBuilder.build(id, c.form, { opaco = isFoe and c.isOpaco })
+end
+
 function BattleController.begin(payload: any)
 	local enc = Encounters.ById[payload.encounterId]
-	local marker = World.Encounters[enc.worldMarker]
+	-- Las etapas del mapa luchan en la Linde de su región (las de la Fase 1, en su marcador)
+	local marker = World.Encounters[enc.worldMarker or ("Encounter" .. tostring(math.clamp(enc.region, 1, 3)))]
 	local center = v3(marker.position)
 	hooks.suspendWorld(true)
 	hooks.setHud(false)
 	local me, foe = combatant(payload, 1), combatant(payload, 2)
-	local mine = CreatureBuilder.build(me.speciesId, me.form)
-	local theirs = CreatureBuilder.build(foe.speciesId, foe.form, { opaco = true })
+	local mine = buildFor(me, false)
+	local theirs = buildFor(foe, true)
 	battle = {
 		id = payload.battleId,
 		snapshot = payload,
@@ -260,7 +292,51 @@ function BattleController.begin(payload: any)
 		)
 	end)
 	gui.Enabled = true
-	BattleController.render(string.format("¡Un %s aparece entre la niebla!", Kit.escape(foe.name)))
+	if foe.guardianId then
+		-- Entrada del Ser Sagrado: la cámara la recorre de abajo arriba antes del combate
+		TweenService:Create(camera, TweenInfo.new(1.6, Enum.EasingStyle.Sine), {
+			CFrame = CFrame.lookAt(center + Vector3.new(2, 3, 9), center + Vector3.new(4.5, 6, -2)),
+		}):Play()
+		BattleController.render(string.format("%s, guardiana del Valle, despierta opacada…", Kit.escape(foe.name)))
+		task.wait(1.8)
+		TweenService:Create(camera, TweenInfo.new(0.8, Enum.EasingStyle.Quad), {
+			CFrame = CFrame.lookAt(center + Vector3.new(-1, 8, 16), center + Vector3.new(0, 2.5, 0)),
+		}):Play()
+	end
+	local count = #payload.sides[2].team
+	BattleController.render(
+		if count > 1
+			then string.format("¡%d Opacos aparecen entre la niebla!", count)
+			else string.format("¡Un %s aparece entre la niebla!", Kit.escape(foe.name))
+	)
+end
+
+-- Faroles apagados (fase 2 de Copalia): el escenario se oscurece de verdad
+local function dimLights(on: boolean)
+	local grade = Lighting:FindFirstChild("NexoBattleDim") :: ColorCorrectionEffect?
+	if on and not grade then
+		local g = Instance.new("ColorCorrectionEffect")
+		g.Name = "NexoBattleDim"
+		g.Parent = Lighting
+		TweenService:Create(g, TweenInfo.new(1.2), {
+			Brightness = -0.18,
+			Saturation = -0.25,
+			TintColor = Color3.fromRGB(170, 180, 230),
+		}):Play()
+	elseif not on and grade then
+		grade:Destroy()
+	end
+end
+
+local function combatantByUid(uid: string): any
+	for _, side in ipairs(battle.snapshot.sides) do
+		for _, c in ipairs(side.team) do
+			if c.uid == uid then
+				return c
+			end
+		end
+	end
+	return nil
 end
 
 local function lunge(isMine: boolean)
@@ -352,6 +428,32 @@ local function playTurn(payload: any)
 			caption = nameOf(e.actor) .. " falla"
 		elseif e.t == "Faint" then
 			caption = if isMine(e.target) then nameOf(e.target) .. " está cansado" else "¡La niebla gris se debilita!"
+		elseif e.t == "Switch" then
+			local c = combatantByUid(e.to)
+			if c then
+				local foeSide = e.side == 2
+				local old = if foeSide then battle.theirs else battle.mine
+				old:destroy()
+				local fresh = buildFor(c, foeSide)
+				if foeSide then
+					battle.theirs = fresh
+				else
+					battle.mine = fresh
+				end
+				caption = if foeSide
+					then "¡Otro Opaco entra en combate!"
+					else Kit.escape(c.name) .. " entra en combate"
+			end
+		elseif e.t == "Roots" then
+			caption = "🌿 Las raíces curan a " .. nameOf(e.target)
+		elseif e.t == "RootsCut" then
+			floater(isMine(e.target), "✂ raíces", Kit.Color.copalGlow)
+			caption = "✂ ¡Raíces cortadas! " .. nameOf(e.target) .. " ya no se curará"
+		elseif e.t == "RootsEnd" then
+			caption = nameOf(e.target) .. " arranca sus raíces"
+		elseif e.t == "Phase" then
+			dimLights(true)
+			caption = "🏮 " .. tostring(e.text)
 		elseif e.t == "Restored" then
 			caption = "✨ ¡El monstruo recupera su color!"
 			for k = 10, 0, -1 do
@@ -382,6 +484,7 @@ local function finish(payload: any)
 	battle.loop:Disconnect()
 	battle.mine:destroy()
 	battle.theirs:destroy()
+	dimLights(false)
 	battle = nil
 	gui.Enabled = false
 	gui:ClearAllChildren()
@@ -394,7 +497,9 @@ local function finish(payload: any)
 	end
 	hooks.suspendWorld(false)
 	hooks.setHud(true)
-	if payload.result and payload.result.rewardId then
+	if payload.won and payload.result and hooks.showStageResult then
+		hooks.showStageResult(payload)
+	elseif payload.result and payload.result.rewardId then
 		hooks.showReward(payload.result.rewardId)
 	end
 end

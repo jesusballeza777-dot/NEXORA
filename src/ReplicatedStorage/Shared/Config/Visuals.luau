@@ -312,6 +312,32 @@ local Visuals: { [string]: VisualDef } = {
 			iris = rgb(150, 210, 110),
 		},
 	},
+	-- ===== Ser Sagrado (jefe del Acto I) =====
+	-- Blockout de COMPOSICIÓN (no es diseño): garza colosal con patas de raíz, alas de
+	-- hoja y faroles (Biblia p. 12). Pendiente de concepto aprobado.
+	copalia = {
+		archetype = "Heron",
+		assetStatus = "Blockout",
+		broteScale = 1.9,
+		talladoScale = 1.9,
+		signatureFeature = "Patas de raíces, alas de hojas y faroles",
+		brote = {
+			body = rgb(214, 206, 180),
+			belly = rgb(240, 232, 210),
+			accent = rgb(86, 150, 92),
+			emissive = rgb(255, 196, 96),
+			eye = rgb(40, 30, 20),
+			iris = rgb(255, 196, 96),
+		},
+		tallado = {
+			body = rgb(214, 206, 180),
+			belly = rgb(240, 232, 210),
+			accent = rgb(86, 150, 92),
+			emissive = rgb(255, 196, 96),
+			eye = rgb(250, 240, 220),
+			iris = rgb(255, 196, 96),
+		},
+	},
 }
 
 -- Estilo "Opaco": la niebla gris desatura la especie; al vencerlo recupera su color.

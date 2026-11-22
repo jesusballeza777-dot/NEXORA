@@ -36,12 +36,12 @@ return Freeze.deep({
 	-- el resto son espacios reservados con su señalización.
 	Stations = {
 		Despensa = { position = { -34, 0, -20 }, label = "Despensa del Gabinete", implemented = true, radius = 14 },
-		Mirador = { position = { 26, 0, -64 }, label = "Mirador de Biomas", implemented = false, radius = 14 },
-		Criadero = { position = { -30, 0, -60 }, label = "Criadero", implemented = false, radius = 14 },
+		Mirador = { position = { 26, 0, -64 }, label = "Mirador de Biomas", implemented = true, radius = 14 },
+		Criadero = { position = { -30, 0, -60 }, label = "Criadero", implemented = true, radius = 14 },
 		PortalArenas = { position = { 38, 0, -28 }, label = "Portal de Arenas", implemented = false, radius = 14 },
-		Tablon = { position = { -40, 0, 6 }, label = "Tablón de Encargos", implemented = false, radius = 12 },
+		Tablon = { position = { -40, 0, 6 }, label = "Tablón de Encargos", implemented = true, radius = 12 },
 		Circulo = { position = { 40, 0, 6 }, label = "Círculo de Encuentro", implemented = false, radius = 12 },
-		RepisaCofres = { position = { 0, 0, -82 }, label = "Repisa de Cofres", implemented = false, radius = 12 },
+		RepisaCofres = { position = { 0, 0, -82 }, label = "Repisa de Cofres", implemented = true, radius = 12 },
 	},
 
 	-- Portal visual hacia biomas futuros (Mirador), detrás del árbol.

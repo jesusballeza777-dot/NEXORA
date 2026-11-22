@@ -34,6 +34,12 @@
       chance(p) { if (p <= 0) return false; if (p >= 1) return true; return this.next() < p; }
       range(min, max) { return min + (max - min) * this.next(); }
       int(min, max) { return min + Math.floor(this.next() * (max - min + 1)); }
+      // Semilla determinista desde un texto (djb2 módulo 2^31−1 sobre los bytes UTF-8)
+      static seedFromString(text) {
+        let h = 5381;
+        for (const b of new TextEncoder().encode(text)) h = (h * 33 + b) % MOD;
+        return h === 0 ? 1 : h;
+      }
     }
 
     // ---------------- Stats ----------------
@@ -516,6 +522,13 @@
       }
       state.pending = {};
       return events;
+    };
+    // Resumen del combate para estrellas y retos (lado del jugador = 1)
+    BE.summary = function (state) {
+      return {
+        turns: state.turn, faints: state.tally.faints[0], elements: Object.assign({}, state.tally.elements[0]),
+        rootsCut: state.tally.rootsCut, teamSize: state.sides[0].team.length, nexoUsed: state.tally.nexoUsed[0],
+      };
     };
 
     // ---------------- BattleAI ----------------

@@ -346,6 +346,84 @@ function CreatureBuilder.build(speciesId: string, form: string, opts: { opaco: b
 		E(Vector3.new(1.0, 0.9, 1.1), head, belly)
 		eyes(head + Vector3.new(0, 0.12, 0.38), 0.22, if T then 0.13 else 0.16, 0.07)
 		smile(head + Vector3.new(0, -0.18, 0.5), 0.18)
+	elseif a == "Heron" then
+		-- Ser Sagrado (Copalia): garza alta; patas de raíz que se abren en el suelo,
+		-- cuello en S, alas de hoja con faroles colgantes.
+		local bark = Color3.fromRGB(96, 70, 52)
+		for _, sx in ipairs({ -1, 1 }) do
+			add(
+				"Cylinder",
+				Vector3.new(2.6, 0.32, 0.32),
+				CFrame.new(sx * 0.45, 1.3, -0.1) * CFrame.Angles(0, 0, math.rad(90)),
+				bark,
+				"Leg"
+			)
+			for k = 0, 2 do
+				local ang = sx * (0.5 + k * 0.6)
+				add(
+					"Cylinder",
+					Vector3.new(1.1, 0.2, 0.2),
+					CFrame.new(sx * 0.45 + math.sin(ang) * 0.4, 0.12, -0.1 + math.cos(ang) * 0.4)
+						* CFrame.Angles(0, ang, math.rad(10)),
+					bark
+				)
+			end
+		end
+		E(Vector3.new(1.6, 1.4, 2.4), Vector3.new(0, 3.1, -0.2), body)
+		E(Vector3.new(1.2, 0.9, 1.6), Vector3.new(0, 2.85, 0.05), belly)
+		local neck =
+			{ Vector3.new(0, 3.7, 0.8), Vector3.new(0, 4.3, 1.0), Vector3.new(0, 4.9, 0.8), Vector3.new(0, 5.4, 1.05) }
+		for _, pos in ipairs(neck) do
+			E(Vector3.new(0.5, 0.75, 0.5), pos, body)
+		end
+		local head = Vector3.new(0, 5.75, 1.3)
+		E(Vector3.new(0.7, 0.6, 0.85), head, belly)
+		add(
+			"Block",
+			Vector3.new(0.18, 0.16, 1.2),
+			CFrame.new(head + Vector3.new(0, -0.05, 0.85)) * CFrame.Angles(math.rad(8), 0, 0),
+			Color3.fromRGB(226, 182, 80)
+		)
+		eyes(head + Vector3.new(0, 0.12, 0.3), 0.26, 0.11, 0.0)
+		-- Cresta de hojas
+		for k = -1, 1 do
+			add(
+				"Ellipsoid",
+				Vector3.new(0.22, 0.9, 0.4),
+				CFrame.new(head + Vector3.new(k * 0.12, 0.45, -0.25)) * CFrame.Angles(-0.6, 0, k * 0.3),
+				accent
+			)
+		end
+		-- Alas de hoja con faroles
+		for _, sx in ipairs({ -1, 1 }) do
+			for k = 0, 2 do
+				add(
+					"Ellipsoid",
+					Vector3.new(0.18, 1.0 + k * 0.15, 2.0 - k * 0.3),
+					CFrame.new(sx * (0.85 + k * 0.28), 3.3 + k * 0.15, -0.3 - k * 0.2)
+						* CFrame.Angles(0.15, 0, sx * (0.45 + k * 0.2)),
+					accent,
+					"Gill"
+				)
+			end
+			for k = 0, 1 do
+				E(
+					Vector3.new(0.32, 0.42, 0.32),
+					Vector3.new(sx * (1.2 + k * 0.35), 2.55 - k * 0.15, -0.4 - k * 0.3),
+					glow,
+					"Glow",
+					Enum.Material.Neon
+				)
+			end
+		end
+		-- Cola de hojas
+		add(
+			"Ellipsoid",
+			Vector3.new(0.9, 0.25, 1.4),
+			CFrame.new(0, 3.0, -1.6) * CFrame.Angles(0.3, 0, 0),
+			accent,
+			"Tail"
+		)
 	else
 		-- Arquetipos de rivales del vertical slice (Agave, Armadillo, Cicada, Jar, Beetle)
 		E(Vector3.new(2.0, 1.7, 2.3), Vector3.new(0, 1.0, 0), body)

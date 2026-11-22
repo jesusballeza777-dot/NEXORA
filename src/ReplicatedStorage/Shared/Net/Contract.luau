@@ -61,6 +61,33 @@ local Actions: { [string]: ActionSpec } = {
 	-- Recompensas
 	["Reward.Claim"] = { args = { S(96) }, rate = { burst = 4, perSecond = 1 } },
 
+	-- Fase 2 · Criadero: huevos e incubadora (el servidor decide tiempos y resultado)
+	["Egg.Incubate"] = { args = { S(32), I(1, 5) }, rate = { burst = 4, perSecond = 1 } },
+	["Egg.Hatch"] = { args = { I(1, 5) }, rate = { burst = 4, perSecond = 1 } },
+	["Incubator.BuySlot"] = { args = { I(1, 5) }, rate = { burst = 2, perSecond = 0.3 } },
+
+	-- Fase 2 · Repisa de Cofres (contenido fijado al obtener el cofre)
+	["Chest.Open"] = { args = { S(32) }, rate = { burst = 4, perSecond = 1 } },
+
+	-- Fase 2 · Tablón de Encargos: el cliente solo pide reclamar; el progreso es del servidor
+	["Quest.Claim"] = { args = { S(8), I(1, 3) }, rate = { burst = 4, perSecond = 1 } },
+
+	-- Fase 2 · Aventura: acertijo del Tesoro y equipo (lista "id,id,id")
+	["Adventure.Treasure"] = { args = { S(32), S(16) }, rate = { burst = 4, perSecond = 1 } },
+	["Team.Set"] = { args = { S(110) }, rate = { burst = 4, perSecond = 1 } },
+
+	-- Fase 2 · Santuario: decoración (en el propio lote), vitrina, Vivero y títulos
+	["Sanctuary.PlaceDecor"] = {
+		args = { I(1, 6), S(32) },
+		rate = { burst = 6, perSecond = 2 },
+		near = "PlayerLot",
+	},
+	["Sanctuary.ClearDecor"] = { args = { I(1, 6) }, rate = { burst = 6, perSecond = 2 }, near = "PlayerLot" },
+	["Sanctuary.Template"] = { args = { S(16) }, rate = { burst = 2, perSecond = 0.5 }, near = "PlayerLot" },
+	["Sanctuary.Showcase"] = { args = { S(110) }, rate = { burst = 4, perSecond = 1 } },
+	["Sanctuary.Expand"] = { args = {}, rate = { burst = 2, perSecond = 0.3 } },
+	["Title.Equip"] = { args = { S(32) }, rate = { burst = 4, perSecond = 1 } },
+
 	-- Viaje rápido del menú del árbol (lleva a la estación; no la usa a distancia)
 	["World.Travel"] = { args = { S(24) }, rate = { burst = 2, perSecond = 0.3 } },
 

@@ -80,3 +80,5 @@ modelo se apruebe, `Config/Visuals` pasará `assetStatus` a `Approved` con su `m
 incubadora y huevos → Papalumen y Nexum (marketing) → resto del Valle y Copalia → Cumbre y Velo.
 
 Rediseño de los tres iniciales: `docs/art/STARTERS_REDESIGN.md`.
+
+Paquete de producción de la Fase 2: ver `docs/art/README.md`.
