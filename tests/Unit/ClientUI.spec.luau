@@ -22,7 +22,7 @@ local function lateProfile(): (any, any)
 	Play.boost(p, extra, 22, "Tallado")
 	Actions.setTeam(p, { starter, extra }, Play.ctx())
 	local r = Play.encounter(p, "valle_r1_e1", "UI1", 5)
-	assert(r.ok)
+	assert(r.ok, "etapa 1 sin aplicar")
 	Play.encounter(p, "valle_r1_e2", "UI2", 6)
 	local egg = EggRules.grant(p, "vainas", { kind = "Test", at = Play.now }, Play.now).data.eggId
 	EggRules.grant(p, "pabilo", { kind = "Test", at = Play.now }, Play.now)
@@ -43,7 +43,7 @@ end
 local function mountAll(view: any, petIds: { string })
 	local requests = {}
 	local NetStub = {
-		request = function(action: string, ...)
+		request = function(action: string)
 			table.insert(requests, action)
 			return { ok = false, err = "Offline" }
 		end,
