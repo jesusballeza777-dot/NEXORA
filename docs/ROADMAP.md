@@ -4,7 +4,7 @@
 |---|---|---|
 | 0 · Auditoría | Repo, Biblia, herramientas, Studio/MCP, riesgos | ✅ Hecha (21 nov 2026) |
 | 1 · Vertical slice | Núcleo jugable: Valle, 3 iniciales provisionales, eclosión, acompañante, lote, cuidado, XP, PvE, recompensa, guardado | 🟡 Código completo y probado fuera de Studio; falta validación en Roblox Studio |
-| 2 · Primer lanzamiento | Más especies aprobadas, Tallados finales, álbum, incubadora, misiones, cofres ganados jugando, Acto I completo | ⬜ |
+| 2 · Content beta | Colección (Álbum, Bestiario), huevos e incubadora, cofres ganados jugando, Tablón de Encargos, santuario ampliado, Acto I completo con Copalia, Códice | 🟡 Código del servidor y del cliente de Roblox completo y probado fuera de Studio (rama `phase-2/content-beta`); vista previa web en curso; falta Studio |
 | 3 · Retención | Visitas, exhibiciones, eventos configurables, personalización, cosméticos deterministas | ⬜ |
 | 4 · Expansión | Crianza, biomas/actos/guardianes, PvP, temporadas, torneos, posible suscripción | ⬜ |
 
@@ -37,6 +37,20 @@
   - Disco de cielo de Mitlaxis corregido: antes era un disco vertical gigante y el azul daba vueltas de campana.
   - Comprobado con la galería y la vista del valle generadas desde el código real (`tools/roblox-preview`) y con `World.spec` (la API de Roblox valida clases y propiedades). La luz real se verá en Studio.
 
+## Hecho en la Fase 2 (Content beta) — ver `docs/PHASE_2_IMPLEMENTATION.md`
+- **Bloque A:**
+  - auditoría (`docs/PHASE_2_BASELINE_AUDIT.md`), etiqueta `phase-1-stable` y respaldo del lugar compilado;
+  - perfil v2 con migración probada;
+  - **corrección crítica:** el motor no sustituía al monstruo caído en equipos de 2–3;
+  - cola FIFO en el gateway.
+- **Bloques B–F:** colección y Bestiario (lore de las 50 fichas), huevos e incubadora de 5 ranuras, cofres (catálogo de 6 con contenido fijo, D-024), Tablón de Encargos, decoración y vitrina, Acto I (16 etapas, estrellas, tesoros, rescates, secretas, raíces, Copalia en dos fases), Códice.
+- **Cliente Roblox:** 16 pantallas nuevas, ceremonias (eclosión, Tallado, cofres, resultado de etapa), menú rápido, estaciones activas, combate con relevos y jefe, lotes con decoración, vitrina e incubadora animada.
+- **Calidad:**
+  - 144 pruebas Lune, incluido el Acto I completo de punta a punta y una prueba de humo que monta todas las pantallas con clases reales de Roblox;
+  - paridad de combate 225/225;
+  - catálogo generado (`docs/CONTENT_CATALOG.md`);
+  - paquete de arte (`docs/art/`).
+
 ## Siguiente bloque (orden recomendado)
 1. **Validar en Roblox Studio** con `tests/Playtest/STUDIO_PLAYTEST.md` (conectar Roblox Studio MCP si es posible) y corregir lo que aparezca en la primera ejecución.
 2. **Efectos de combate en Roblox**: partículas por elemento, destellos de golpe y de Golpe Nexo (la vista previa ya los tiene).
@@ -56,3 +70,6 @@
 | R5 | Repositorio | El push a GitHub fue rechazado: la app de Claude no tiene acceso a `jesusballeza777-dot/NEXORA`. | Conectar GitHub e instalar la app; luego subir la rama |
 | R6 | Fuente | Falta la Biblia v5 completa en `docs/reference/`. | Incorporarla y repasar `DESIGN_DECISIONS.md` |
 | R7 | Producto | 93 preguntas abiertas de la v5.1 (ninguna bloquea la Fase 1). | Priorizar las de la tabla de `DESIGN_DECISIONS.md` §4 |
+| R8 | Cofres | Faltan las tablas de probabilidad de la Biblia v5: los cofres usan contenido fijo (D-024). | Incorporar la v5 o aprobar tablas; el validador las comprueba |
+| R9 | Balance | Copalia, las etapas y los retos son propuestas simuladas (D-026, D-027), no probadas con jugadores. | Playtest controlado y analítica de abandono por etapa |
+| R10 | Arte | Zunzi, Pabilo, Lumbro, Dientón y Copalia usan blockouts con arquetipos prestados. | Conceptos aprobados (`docs/art/`) |

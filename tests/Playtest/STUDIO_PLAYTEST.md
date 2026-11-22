@@ -54,3 +54,27 @@ recorrer esta lista: inspeccionar el árbol, leer la consola y hacer playtests.
 | Dispositivo de gama baja | 30 fps con 8 monstruos en pantalla | ☐ |
 
 Registrar los resultados (y los errores encontrados con su causa y arreglo) en `docs/ROADMAP.md`.
+
+## Fase 2 · Content beta (validar en Studio)
+Marca cada punto solo si lo ejecutaste. Usa el almacén de pruebas y `Dev.GrantXp` (Studio) para acelerar niveles.
+
+| # | Prueba | Esperado | ✔ |
+|---|---|---|---|
+| F2-1 | Entrar con un perfil de la Fase 1 | Migración a la v2 sin pérdidas; el Álbum muestra el inicial y los Opacos vencidos | ☐ |
+| F2-2 | Menú del Gran Nexo (botón 🌳) | Accesos rápidos: Aventura, Álbum, Criadero, Cofres, Encargos, Códice, Santuario, Decorar, Vitrina, Árbol, Historial | ☐ |
+| F2-3 | Estaciones físicas (Criadero, Tablón, Repisa de Cofres, Mirador) | Cada una abre su pantalla | ☐ |
+| F2-4 | Álbum: desplazarse por un bioma | Retratos 3D solo de cartas visibles y descubiertas; sin tirones en móvil | ☐ |
+| F2-5 | Bestiario de una especie vista, restaurada y tallada | Revela más información en cada nivel | ☐ |
+| F2-6 | Abrir un Cofre de Madera | Contenido visible antes de abrir; animación; Monedas y huevo en el inventario; segundo toque no duplica | ☐ |
+| F2-7 | Incubar un huevo y salir 6 min | Al volver, listo para eclosionar; ceremonia y carta | ☐ |
+| F2-8 | Incubadora del lote | Huevo flotante, dos anillos, haz de luz y grietas al 25/50/75 % | ☐ |
+| F2-9 | Tablón: completar 3 diarios | Reclamar da Monedas y, el tercero, un Cofre de Madera | ☐ |
+| F2-10 | Mapa del Acto I | Regiones con su color, nodos bloqueados/abiertos/estrellas, secretas "?" | ☐ |
+| F2-11 | Etapa con 3 Opacos | Entra el siguiente al caer uno; contador de equipo | ☐ |
+| F2-12 | Opaco con 🌿 raíces | Se cura al final del turno; un golpe eficaz muestra "¡Raíces cortadas!" | ☐ |
+| F2-13 | Tesoro | Respuesta incorrecta permite reintentar; correcta da Plata y estrellas | ☐ |
+| F2-14 | Copalia | Entrada con cámara, fase 2 al 50 % (escenario más oscuro, −20 % precisión), restauración y Cofre Nexo | ☐ |
+| F2-15 | Tallar un monstruo | Ceremonia: aviso, giro, destello, revelación y cambios de atributos | ☐ |
+| F2-16 | Decorar el lote y elegir vitrina | Objetos visibles para otros jugadores en Team Test | ☐ |
+| F2-17 | Dos jugadores en Team Test | Cada uno ve sus cofres, huevos y encargos; nadie puede abrir lo del otro | ☐ |
+| F2-18 | MicroProfiler en móvil emulado | Sin picos al abrir el Álbum ni en el combate contra Copalia | ☐ |

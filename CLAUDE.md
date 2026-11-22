@@ -34,6 +34,14 @@ Este archivo manda en todas las sesiones futuras. Léelo antes de tocar código.
 Requiere con `require(script.Parent.X)` (instancias), nunca con cadenas: así el código corre igual en Studio y en el arnés de Lune.
 La lógica pura no puede usar APIs de motor (`task`, `Instance`, `workspace`…): recibe `now`, `Rng` y dependencias por parámetro.
 
+## Fase 2 (content beta)
+- Plan, módulos y estado: `docs/PHASE_2_IMPLEMENTATION.md`. Decisiones D-022 a D-032 en `DESIGN_DECISIONS.md`.
+- Perfil **v2**. Cada sección nueva lleva su regla pura en `Server/Domain` y su caso de uso en `Actions`.
+- **Progreso de encargos:** solo por eventos internos (`QuestRules.track` desde `Actions`), nunca por el cliente.
+- **Cofres:** contenido y especie del huevo fijados al obtenerlos. El modo aleatorio solo con tabla validada (`ChestRules.validateTable`) y aprobada.
+- **Interfaz Roblox nueva:** `tests/Unit/ClientUI.spec.luau` la monta con clases reales. Toda pantalla nueva entra en esa prueba.
+- **Catálogo:** `docs/CONTENT_CATALOG.md` se regenera con `lune run tools/catalog/build`; no se edita a mano.
+
 ## Flujo de trabajo
 - Herramientas fijadas en `rokit.toml` (rojo, lune, stylua, selene).
 - Antes de cada commit: `./scripts/check.sh` (StyLua, Selene, pruebas Lune, `rojo build`, vista previa y paridad Luau↔JS). Todo debe quedar en verde.

@@ -4,15 +4,18 @@ Juego original de fantasía, colección, cuidado, evolución y combate táctico 
 Empiezas con un huevo, cuidas a tu **Brote**, desarrollas su Vínculo, lo entrenas y lo **tallas** en una
 forma imponente que sigue siendo él. *Tierno al nacer. Imponente al tallarse.*
 
-Este repositorio contiene la **Fase 1 (vertical slice)** construida según la Biblia de NEXORA y el
-prompt maestro *Project Genesis*.
+Este repositorio contiene la **Fase 1 (vertical slice)** y la **Fase 2 (content beta)**, construidas según
+la Biblia de NEXORA y los prompts maestros *Project Genesis*. La Fase 2 vive en la rama
+`phase-2/content-beta`: colección y Bestiario, huevos e incubadora, cofres ganados jugando, Tablón de
+Encargos, santuario ampliado y el Acto I completo hasta Copalia (`docs/PHASE_2_IMPLEMENTATION.md`).
 
 ## Qué hay
 | Parte | Dónde | Estado |
 |---|---|---|
 | Proyecto Roblox (Luau `--!strict`, Rojo) | `src/` | Completo para la Fase 1; pendiente de validar en Studio |
 | Datos de la Biblia (50 especies, 12 elementos, 72 ataques…) | `src/ReplicatedStorage/Shared/Config` | ✅ |
-| Pruebas (unitarias e integración, Lune) | `tests/` | ✅ 106 pruebas |
+| Pruebas (unitarias, integración y humo de interfaz, Lune) | `tests/` | ✅ 144 pruebas |
+| Catálogo de contenido (generado desde la config) | `docs/CONTENT_CATALOG.md` | ✅ |
 | Vista previa web jugable (mismas reglas y motor) | `tools/web-preview/dist/NEXORA_Preview.html` | ✅ |
 | Vista de los modelos y el valle **de Roblox** (código real, sin Studio) | `lune run tools/roblox-preview/build` → `build/roblox-preview/` | ✅ |
 | Documentación | `docs/`, `CLAUDE.md` | ✅ |
@@ -48,5 +51,9 @@ Reglas de trabajo: `CLAUDE.md`. Arquitectura: `docs/TECHNICAL_ARCHITECTURE.md`.
 - `docs/ART_DIRECTION.md` y `docs/art/STARTERS_REDESIGN.md` · identidad visual y rediseño de los iniciales
 - `docs/MONETIZATION_STRATEGY.md` · economía y monetización futura responsable
 - `docs/ROADMAP.md` · hecho, siguiente bloque, riesgos
+- `docs/PHASE_2_BASELINE_AUDIT.md`, `docs/PHASE_2_IMPLEMENTATION.md`, `docs/PHASE_2_TEST_REPORT.md` · Fase 2
+- `docs/CONTENT_CATALOG.md` · especies, Acto I, cofres, encargos, Códice y decoración
+- `docs/art/` · paquete de producción artística (nada aprobado todavía)
+- `docs/NEXORA_Biblia_Compacta_Desarrollo_Roblox_ClaudeCode_v1.0.md` · transcripción de la Biblia compacta
 
 Todos los personajes son diseños originales. Los modelos actuales son blockouts provisionales.

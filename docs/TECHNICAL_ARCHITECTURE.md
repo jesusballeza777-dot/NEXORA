@@ -56,6 +56,19 @@ flowchart TB
 
 **Perfil** (`Types.Profile`, `ProfileSchema.CURRENT_VERSION = 1`): monedas, objetos, mascotas, serial, acompañante, equipo, capacidad del Vivero, lotes y hábitats (slots, `lastCollectAt`, `accrued`, reserva), historia (superados, repeticiones diarias), onboarding, desbloqueos, recompensas (`pending`, `ledger` acotado a 500), `firsts` (analítica una vez), contadores.
 
+**Perfil v2 (Fase 2, `CURRENT_VERSION = 2`).** Se añaden estas secciones:
+- **Colección:** `collection[speciesId] = { seenAt, restoredAt, broteAt, talladoAt, count }`.
+- **Huevos:** `eggs[E<userId>-n] = { speciesId, rarity, traits, source, obtainedAt, state, slot, startedAt, readyAt }` y `incubators[1..5] = { unlocked, eggId }`.
+- **Cofres:** `chests[C<userId>-n] = { chestType, contents, source, obtainedAt }`.
+- **Historial:** `history`, acotado a 100 entradas.
+- **Encargos:** `quests = { day, daily[3], dailyBonusClaimed, week, weekly }`.
+- **Aventura:** `story.{stars, bestTurns, regionRewards, actRewards, treasureAttempts}`.
+- **Otras:** `codex`, `decor { slots[6], owned }`, `showcase`, `titles`, `frames`, `guardians`.
+
+La migración 1→2 reconstruye la colección a partir de las mascotas y de los Opacos vencidos, y da ★ a las etapas ya superadas (prueba en `Phase2Flow.spec`). Las recompensas pendientes pueden llevar cofres, huevos (con la especie ya fijada), decoración, títulos y marcos. `RewardRules.claim` comprueba el espacio antes de aplicar nada.
+
+**Reglas de la Fase 2** (`Server/Domain`): `CollectionRules`, `EggRules`, `ChestRules`, `QuestRules`, `DecorRules`, `HistoryRules` y `EncounterRules` ampliado. `Actions` emite los eventos internos que mueven los encargos y la analítica.
+
 Registro en DataStore: `{ meta = { lock = {jobId, at}, writes, updatedAt }, data = Profile }`.
 
 ## 4. Flujo cliente-servidor
