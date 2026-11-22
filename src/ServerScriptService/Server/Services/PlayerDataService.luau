@@ -115,7 +115,7 @@ local function onPlayerAdded(player: Player)
 	local r = Actions.onLoad(session.data, PlayerDataService.ctx(player))
 	if analytics then
 		analytics.logResult(player, r)
-		analytics.log(player, "session_start", { isNew = session.isNew })
+		analytics.log(player, "session_started", { isNew = session.isNew })
 	end
 	PlayerDataService.loaded:Fire(player, session)
 	PlayerDataService.pushProfile(player)
@@ -135,7 +135,7 @@ local function release(player: Player)
 	local ok, err = PlayerDataService.store:saveWithRetry(session, true)
 	if analytics then
 		analytics.log(player, "data_save_status", { ok = ok, reason = err or "release" })
-		analytics.log(player, "session_end", { seconds = os.time() - session.loadedAt })
+		analytics.log(player, "session_ended", { seconds = os.time() - session.loadedAt })
 	end
 	if not ok then
 		Log.error("Guardado final fallido para %d: %s", player.UserId, tostring(err))

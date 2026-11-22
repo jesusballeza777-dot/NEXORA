@@ -84,7 +84,11 @@ function Actions.onLoad(p: Profile, ctx: Ctx): Result.Result
 		first(p, analytics, "onboarding_started", ctx.now)
 	end
 	OnboardingRules.onLoad(p, ctx.now)
-	QuestRules.refresh(p, ctx.now)
+	if QuestRules.refresh(p, ctx.now) then
+		for _, q in ipairs(p.quests.daily) do
+			table.insert(analytics, { name = "quest_started", fields = { quest = q.questId, kind = "Daily" } })
+		end
+	end
 	EggRules.refreshSlots(p)
 	return finish(p, Result.ok({ step = p.onboarding.step }), analytics, ctx.now)
 end

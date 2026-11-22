@@ -135,6 +135,87 @@ Formato: **estado** · decisión · por qué · consecuencias · dónde vive · 
 - Antes, un UserId en `Config/Dev.AllowedUserIds` activaba los comandos de prueba también en servidores publicados, que escriben en el DataStore de producción.
 - **Decisión:** `DevGate` solo autoriza dentro de Studio (que usa el almacén de pruebas); en Studio la lista restringe quién puede usarlos (vacía = todos). Ningún multiplicador puede tocar datos reales.
 
+### D-022 · Combates de 1 a 3 monstruos por lado — D
+- **Biblia:** equipos de 3 con un monstruo en campo (Arena 1v1); aventura con 1 a 3 rivales (p. 111).
+- **Decisión:** cuando cae el monstruo en campo entra automáticamente el siguiente del equipo, por orden. El cambio manual queda para la Arena. Al llegar al límite de turnos gana el lado con más vida en proporción, sumando todo el equipo.
+
+### D-023 · Arquitectura de la Fase 2 — D
+- **Perfil v2:** secciones de colección, huevos, incubadora, cofres, historial, encargos, estrellas, Códice, decoración, vitrina, títulos, marcos y Seres Sagrados. Migración 1→2 probada.
+- **Reglas:** cada sistema es un módulo puro en `Server/Domain` (`CollectionRules`, `EggRules`, `ChestRules`, `QuestRules`, `DecorRules`, `HistoryRules`, ampliado `EncounterRules`), orquestado por `Actions`.
+- **Progreso de encargos:** se mueve con eventos internos emitidos por `Actions`, nunca por el cliente.
+
+### D-024 · Cofres con contenido fijo y visible en la beta — PROPUESTA pendiente de aprobación
+- **Problema:** la Biblia compacta solo conserva parte de las tablas ("Madera: Huevo Común 30 % y Raro 6 %; Oro: Huevo Épico 15 %"). Las de Madera y Oro suman 36 % y 15 %; las demás no tienen datos. Completarlas sería inventar porcentajes.
+- **Decisión provisional:**
+  - Madera, Plata, Oro y Nexo se activan con **contenido fijo** (Monedas, comida y un huevo de un grupo), mostrado antes de abrir. Aplica la regla del Gabinete: "lo que ves es lo que te llevas" (p. 13).
+  - Épico y Diamante quedan en el catálogo, sin activar.
+  - El modo aleatorio está implementado y validado (`ChestRules.validateTable`): suma exacta del 100 %, sin huecos, sin duplicados, solo datos de la Biblia, y aprobación explícita (`approved`). Hoy ningún cofre lo cumple.
+- **Para activarlo:** incorporar la Biblia v5 o aprobar tablas; el validador y las pruebas dirán si son válidas.
+
+### D-025 · Huevos e incubadora — PROPUESTA en los huecos
+- **De la Biblia:**
+  - tiempos 5 min · 20 min · 2 h · 8 h · 24 h · 72 h;
+  - entre 1 y 5 ranuras;
+  - 3.ª ranura por 25 000 Monedas y 4.ª por 400 Gemas;
+  - huevos de la Vitrina con rasgos estándar.
+- **Propuestas:**
+  - 2.ª ranura gratis al completar la Región 1 del Acto I;
+  - la 4.ª (Gemas) y la 5.ª (pase) declaradas pero no disponibles en la beta;
+  - capacidad de 24 huevos guardados;
+  - el huevo de un cofre es la primera especie del grupo que el jugador aún no tiene ni espera, o la que menos tiene. Deja de haber azar y la colección avanza.
+- **Invariantes:** la especie y los rasgos se fijan al obtener el huevo; los tiempos son absolutos del servidor; si el Vivero está lleno, la eclosión no consume el huevo.
+
+### D-026 · Diseño de las 16 etapas del Acto I — PROPUESTA
+- **De la Biblia:** estructura (3 regiones × 4 etapas, jefe y una secreta por región), tipos de etapa, rangos de premio (200–1 500 Monedas, 150–800 XP), Tesoro con Plata, Rescate con 10 %, Oro por las 3 estrellas de una región, Nexo por el jefe, repetición al 25 % con tope de 10, sin energía.
+- **Propuesto:**
+  - nombres de región;
+  - qué Opaco va en cada etapa, con sus niveles y modificadores;
+  - los retos ★★★ (cinco tipos, repartidos sin repetir la misma condición en todas);
+  - acertijos de Tesoro basados en la tabla de elementos;
+  - premios dentro de los rangos;
+  - decoración y Códice por región;
+  - la 2.ª ranura de incubadora como premio de la Región 1.
+- **Continuidad:** las etapas 1–3 son las de la Fase 1, con los mismos ids y premios.
+- **Proximidad:** `Battle.Start` ya no exige estar en la Linde. El mapa del Mirador o el acceso rápido abren cualquier etapa desbloqueada, y el servidor valida requisitos, equipo y coste.
+
+### D-027 · Copalia: atributos, equilibrio y fases — PROPUESTA
+- **De la Biblia:** Flora (+ Luz, lectura de columnas superpuestas en p. 12, a confirmar con la v5); Raíz Madre (cura 6 % por turno); Bosque de Faroles (Golpe Nexo 120, cura 40 %); fase 1 con raíces, fase 2 con faroles apagados (−20 % de precisión); bono de +10 % de XP en los hábitats del Valle; rareza Única (presupuesto 128).
+- **Propuesto:**
+  - reparto VID 30 · ATQ 24 · DEF 26 · ESE 28 · VEL 20;
+  - nivel de combate 10, VID ×0,9;
+  - fase 2 al 50 % de VID, en la que pierde las raíces y gana 3 de Savia (usa su Golpe Nexo enseguida).
+- **Simulación** (`tools/sim/boss`), al nivel recomendado del acto (15):
+  - con un equipo típico (inicial Tallado y dos Brotes, 3 niveles por debajo) gana el 56 % con una política ingenua;
+  - con tres Tallados gana el 96 %.
+- No es "más vida": cambia las reglas a mitad del combate y premia cortar sus raíces.
+
+### D-028 · Regla del bioma: raíces que se pueden cortar — PROPUESTA
+- **Biblia:** "las raíces curan a los Opacos cercanos" (p. 111).
+- **Implementación:** los Opacos marcados con 🌿 recuperan 5 % de VID al final de cada turno. Un golpe **eficaz** (×1,25) les corta las raíces para el resto del combate. Así la regla se ve, se entiende y premia elegir bien el elemento.
+
+### D-029 · Textos del Códice y lore de regiones — PROPUESTA narrativa
+- Las cartas de las regiones, de los Opacos y las tres pistas Veladas son textos breves coherentes con la Biblia (p. 16 y 114).
+- No amplían el canon de personajes ni deciden las preguntas abiertas sobre los Guardianes Velados (rareza, temporadas).
+
+### D-030 · Tablón de Encargos — PROPUESTA en cifras
+- **De la Biblia:** 3 diarios y 1 semanal, en Monedas con cofres de Madera o Plata.
+- **De Genesis F2:** entre 150 y 250 Monedas por diario y un Cofre de Madera por los tres.
+- **Propuesto:**
+  - 9 diarios (3 por dificultad) y 3 semanales;
+  - el semanal da 1 200 Monedas y un Cofre de Plata;
+  - reinicio a las 00:00 UTC, con la semana empezando el lunes;
+  - selección determinista por cuenta y día.
+
+### D-031 · Blockouts provisionales para los Opacos del Acto I — D
+- Zunzi, Pabilo, Lumbro y Dientón usan arquetipos prestados (Cicada, Jar, Agave y Armadillo) con paletas por elemento, solo para existir como enemigos y huevos en la beta. **No son diseños.**
+- Copalia tiene un blockout de composición (garza).
+- Todo queda marcado en `docs/art/SPECIES_MATRIX.md` a la espera de concepto aprobado.
+
+### D-032 · Decoración, vitrina y Vivero — D / PROPUESTA
+- **Decoración:** 6 espacios fijos con objetos deterministas obtenidos jugando, plantillas de un toque y sin editor libre (Genesis F2 §11.1). Los objetos son PROPUESTA.
+- **Vitrina:** hasta 3 monstruos propios (`Sanctuary.VitrinaSlots`).
+- **Vivero:** +10 plazas por 5 000 Monedas, hasta 100 (Biblia p. 30).
+
 ---
 
 ## 3. Contradicciones detectadas en la Biblia
@@ -152,6 +233,14 @@ Formato: **estado** · decisión · por qué · consecuencias · dónde vive · 
 | 9 | Misterio presupuesto 120 / coste 5 (propuesta v5) | 128 / 6 (v4) | Se usa la propuesta v5 en datos; no afecta a la Fase 1 (P43–P44) |
 | 10 | Agavo/Quiotazo con bioma Cumbre Brasa (p. 52) | Aparece como Opaco del Acto I del Valle (p. 112) | Sin conflicto real: los Opacos pueden estar fuera de su bioma. Se documenta. |
 | 11 | "Hábitat (por minuto) · 2" XP (p. 115, tabla partida en la transcripción) | — | Lectura provisional: 2 XP por minuto a cada monstruo del hábitat (B) |
+| 12 | Opacos del Acto I "de Flora, Tierra y Aire" (p. 111) | Candelux y Faroibex, de Luz, entre los Opacos menores del Acto I (p. 112) | Se usan ambos: los de Luz aparecen en la Región 2–3 (mercado de faroles). Confirmar con el equipo. |
+| 13 | Tablas de cofres completas en la v5 | La compacta solo conserva 36 % (Madera) y 15 % (Oro) | D-024: contenido fijo hasta tener tablas completas y aprobadas |
+| 14 | Común: un material mate, sin metal hasta Épico (p. 26) | Xolossus (cicatrices de oro) y Mitlaxis (anillos de oro) son Comunes | Propuesta de arte: oro como pigmento mate (`docs/art/PRODUCTION_SPECS.md`); decisión pendiente |
+| 15 | Brote con 0–1 emisores de aura (p. 120) | Aura reducida de un Brote Legendario/Único (p. 26) | Pendiente de arte |
+| 16 | Texturas 2048² para Seres Sagrados (p. 120) | Límite de subida de Roblox (1024²) | Bajar a 1024² o usar varias texturas; comprobar con la documentación vigente |
+| 17 | Vitrina Épico: 1 por semana (p. 12 y 30) | "Máx. 3 por semana" (p. 31) | Sin efecto en la beta (sin ventas) |
+| 18 | Nexum se obtiene al final del Acto III (ficha, p. 12) | "Final de la historia" (p. 32) | Sin efecto en la beta |
+| 19 | Xolumi: ojos grandes (Biblia) | Ojos pequeños en `docs/art/STARTERS_REDESIGN.md` | El dossier propone un compromiso; decisión humana |
 
 ---
 

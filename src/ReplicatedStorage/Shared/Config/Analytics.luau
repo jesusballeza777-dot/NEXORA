@@ -21,8 +21,8 @@ return Freeze.deep({
 		"tutorial_completed",
 	},
 	Events = {
-		"session_start",
-		"session_end",
+		"session_started",
+		"session_ended",
 		"data_save_status",
 		"unlock_granted",
 		"sanctuary_visit",
@@ -32,5 +32,27 @@ return Freeze.deep({
 		"battle_finished",
 		"pet_evolved",
 		"remote_rejected",
+		-- Fase 2 (Genesis F2 §20)
+		"species_discovered",
+		"egg_obtained",
+		"incubation_started",
+		"incubation_completed",
+		"egg_hatched",
+		"chest_obtained",
+		"chest_opened",
+		"quest_started",
+		"quest_completed",
+		"quest_claimed",
+		"adventure_stage_started",
+		"adventure_stage_completed",
+		"stage_star_earned",
+		"opaco_restored",
+		"guardian_battle_started",
+		"guardian_defeated",
+		"codex_entry_unlocked",
+		"sanctuary_updated",
 	},
+	-- Hitos de una sola vez (p.firsts) con los segundos desde la creación de la cuenta:
+	-- tiempo hasta la 2.ª criatura, 1.ª eclosión, 1.ª evolución y 1.ª etapa superada.
+	Milestones = { "second_creature", "first_hatch", "first_evolution", "first_stage_completed" },
 })
