@@ -11,6 +11,7 @@ local Species = require(Config:WaitForChild("Species"))
 local Rarities = require(Config:WaitForChild("Rarities"))
 local Chests = require(Config:WaitForChild("Chests"))
 local Economy = require(Config:WaitForChild("Economy"))
+local Gabinete = require(Config:WaitForChild("Gabinete"))
 
 local UI = script.Parent.Parent
 local Kit = require(UI.Kit)
@@ -178,9 +179,9 @@ function Breeding.chests()
 	local ui = Modals.UI
 	Modals.open(function(content)
 		ui.title(content, "Repisa de Cofres")
-		ui.sub(content, "Cofres ganados jugando. El Gabinete enseña su contenido antes de abrirlos.")
+		ui.sub(content, "🗄 <i>«" .. Gabinete.Lines.Shelf .. "»</i>")
 		if #view.chests == 0 then
-			ui.sub(content, "Aún no tienes cofres. Gánalos en etapas, tesoros y encargos.")
+			ui.sub(content, "🗄 <i>«" .. Gabinete.Lines.Empty .. "»</i>")
 		end
 		for _, chest in ipairs(view.chests) do
 			local def = Chests.ById[chest.chestType]
@@ -192,9 +193,12 @@ function Breeding.chests()
 				local food = Economy.Foods[item]
 				table.insert(lines, string.format("%d × %s", v, if food then food.name else item))
 			end
+			local voice = Gabinete.Lines.Odds
 			for _, egg in ipairs(chest.contents.eggs) do
 				table.insert(lines, "Huevo de " .. speciesName(egg.speciesId))
+				voice = string.format(Gabinete.Lines.Fixed, speciesName(egg.speciesId))
 			end
+			table.insert(lines, 1, "🗄 «" .. voice .. "»")
 			Kit.panel({
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,

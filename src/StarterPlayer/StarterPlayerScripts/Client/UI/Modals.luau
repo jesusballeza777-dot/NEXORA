@@ -17,6 +17,7 @@ local SpeciesLore = require(Config:WaitForChild("SpeciesLore"))
 local Progression = require(Config:WaitForChild("Progression"))
 local Chests = require(Config:WaitForChild("Chests"))
 local Decor = require(Config:WaitForChild("Decor"))
+local Gabinete = require(Config:WaitForChild("Gabinete"))
 
 local Kit = require(script.Parent.Kit)
 local CreatureBuilder = require(script.Parent.Parent.Creatures.CreatureBuilder)
@@ -541,7 +542,7 @@ end
 function Modals.shop()
 	Modals.open(function(c)
 		title(c, "Despensa del Gabinete")
-		sub(c, "«Lo que ves es lo que te llevas.» Precios fijos en Monedas ganadas jugando.")
+		sub(c, "🗄 <i>«" .. Gabinete.Lines.Pantry .. "»</i> Precios fijos en Monedas ganadas jugando.")
 		for _, foodId in ipairs(Economy.FoodOrder) do
 			local food = Economy.Foods[foodId]
 			if food.sold then

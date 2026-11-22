@@ -11,6 +11,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 local Config = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config")
 local Visuals = require(Config:WaitForChild("Visuals"))
+local SpeciesConfig = require(Config:WaitForChild("Species"))
+local Guardians = require(Config:WaitForChild("Guardians"))
+local Rarities = require(Config:WaitForChild("Rarities"))
 
 local CreatureBuilder = {}
 
@@ -24,6 +27,7 @@ export type Creature = {
 	phase: number,
 	opaco: number,
 	react: number,
+	aura: ParticleEmitter?,
 	destroy: (self: Creature) -> (),
 }
 
@@ -500,10 +504,33 @@ function CreatureBuilder.build(speciesId: string, form: string, opts: { opaco: b
 		phase = math.random() * 10,
 		opaco = 0,
 		react = 0,
+		aura = nil,
 		destroy = function(self: Creature)
 			self.model:Destroy()
 		end,
 	}
+	-- Aura por rareza (p. 26 y 120): ninguna en Comunes; en el Brote, como mucho un emisor
+	-- discreto. Es la identidad de rareza, no una decoración: se apaga si está opacado.
+	local rarityId = if SpeciesConfig.ById[speciesId]
+		then SpeciesConfig.ById[speciesId].rarity
+		elseif Guardians.ById[speciesId] then Guardians.ById[speciesId].rarity
+		else nil
+	local rarity = if rarityId then Rarities.ById[rarityId] else nil
+	if rarity and rarity.auraEmitters > 0 and #parts > 0 then
+		local strength = if T then rarity.auraEmitters else 1
+		local aura = Instance.new("ParticleEmitter")
+		aura.Name = "RarityAura"
+		aura.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+		aura.Color = ColorSequence.new(Color3.fromRGB(rarity.frameColor[1], rarity.frameColor[2], rarity.frameColor[3]))
+		aura.LightEmission = 1
+		aura.Rate = 2 + strength * 2
+		aura.Lifetime = NumberRange.new(1.2, 2.2)
+		aura.Speed = NumberRange.new(0.4, 1)
+		aura.SpreadAngle = Vector2.new(180, 180)
+		aura.Size = NumberSequence.new(0.25 * scale)
+		aura.Parent = parts[1].part
+		creature.aura = aura
+	end
 	CreatureBuilder.setOpaco(creature, if opts and opts.opaco then 1 else 0)
 	model.Parent = if opts and opts.parent then opts.parent else Workspace
 	return creature
@@ -540,6 +567,9 @@ end
 -- Niebla gris: desatura la criatura (1 = Opaco, 0 = restaurada con sus colores).
 function CreatureBuilder.setOpaco(c: Creature, amount: number)
 	c.opaco = amount
+	if c.aura then
+		c.aura.Enabled = amount < 0.5
+	end
 	for _, rec in ipairs(c.parts) do
 		rec.part.Color = rec.baseColor:Lerp(GREY, amount * 0.85)
 		if rec.kind == "Glow" or rec.kind == "Gill" then
