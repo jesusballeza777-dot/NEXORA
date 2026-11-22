@@ -52,7 +52,9 @@ local Actions: { [string]: ActionSpec } = {
 	["Shop.BuyFood"] = { args = { S(24), I(1, 10) }, rate = { burst = 5, perSecond = 1 }, near = "Despensa" },
 
 	-- Combate PvE (el Opaco está en el mundo)
-	["Battle.Start"] = { args = { S(32) }, rate = { burst = 2, perSecond = 0.5 }, near = "Encounter" },
+	-- Sin proximidad: el mapa del acto (Mirador o acceso rápido) abre cualquier etapa
+	-- desbloqueada; el servidor valida requisitos, equipo y coste.
+	["Battle.Start"] = { args = { S(32) }, rate = { burst = 2, perSecond = 0.5 } },
 	["Battle.Act"] = { args = { S(64), I(1, 999), S(32) }, rate = { burst = 4, perSecond = 2 } },
 	["Battle.Forfeit"] = { args = { S(64) }, rate = { burst = 2, perSecond = 0.5 } },
 

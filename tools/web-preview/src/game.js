@@ -9,6 +9,8 @@ import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 
 const CFG = NexoraNormalize.normalizeConfig(window.NEXORA_CONFIG);
+// Etapas con Opaco físico en la Linde (las del mapa del Acto I no tienen marcador)
+const WORLD_ENCOUNTERS = CFG.Encounters.Order.filter((id) => CFG.Encounters.ById[id].worldMarker);
 const ENG = NexoraEngine.createEngine(CFG);
 const { Stats, Leveling, BattleEngine: BE, BattleAI: AI, ElementChart } = ENG;
 const W = CFG.World;
@@ -836,7 +838,7 @@ for (const b of W.Bridges) {
 // ---------- Linde de las Chinampas: Opacos en niebla gris ----------
 const encounterSpots = {};
 const fogMat = () => new THREE.SpriteMaterial({ map: glowTex, color: 0xb9b9c4, transparent: true, opacity: 0.25, depthWrite: false });
-for (const encId of CFG.Encounters.Order) {
+for (const encId of WORLD_ENCOUNTERS) {
   const enc = CFG.Encounters.ById[encId], mk = W.Encounters[enc.worldMarker], p = v3(mk.position);
   const decal = new THREE.Mesh(new THREE.CircleGeometry(mk.radius * 0.75, 48), new THREE.MeshStandardMaterial({ color: 0x77787f, roughness: 1, transparent: true, opacity: 0.85 }));
   decal.rotation.x = -Math.PI / 2; decal.position.set(p.x, 0.08, p.z); decal.receiveShadow = true; scene.add(decal);
@@ -1311,7 +1313,7 @@ const interactables = [
   { id: "despensa", pos: v3(W.Stations.Despensa.position), radius: W.Stations.Despensa.radius, obj: "Despensa del Gabinete", act: "Comprar comida", enabled: () => !!starterPet(), run: () => openShop() },
   { id: "collector", pos: collectorPos, radius: 10, obj: "Recolector", act: "Recoger Monedas", enabled: () => P.lotUnlocked, run: () => collectCoins() },
   ...slotWorld.map((p, s) => ({ id: "slot" + s, pos: p, radius: 7, obj: `Hábitat · lugar ${s + 1}`, act: "Gestionar hábitat", enabled: () => P.lotUnlocked, run: () => openSanctuary() })),
-  ...CFG.Encounters.Order.map((encId) => ({ id: encId, pos: encounterSpots[encId].pos, radius: W.Encounters[CFG.Encounters.ById[encId].worldMarker].radius, obj: CFG.Encounters.ById[encId].name, act: "Restaurar al Opaco", enabled: () => encounterAvailable(encId), run: () => startBattle(encId) })),
+  ...WORLD_ENCOUNTERS.map((encId) => ({ id: encId, pos: encounterSpots[encId].pos, radius: W.Encounters[CFG.Encounters.ById[encId].worldMarker].radius, obj: CFG.Encounters.ById[encId].name, act: "Restaurar al Opaco", enabled: () => encounterAvailable(encId), run: () => startBattle(encId) })),
 ];
 let currentPrompt = null;
 function interact() { if (currentPrompt) currentPrompt.run(); }
@@ -1349,7 +1351,7 @@ function syncCreatures() {
       if (want) { const pet2 = P.pets[id]; const m = buildCreature(pet2.speciesId, pet2.form); m.userData.key = want; m.position.copy(slotWorld[s]).setY(1.9); m.rotation.y = Math.PI; scene.add(m); habitatModels[s] = m; }
     }
   });
-  for (const encId of CFG.Encounters.Order) {
+  for (const encId of WORLD_ENCOUNTERS) {
     const spot = encounterSpots[encId];
     const spId = opponentSpecies(encId);
     const want = spId && encounterAvailable(encId) ? spId : "";
@@ -1453,7 +1455,7 @@ function refreshUI() {
 function nextGoalHint() {
   const pet = companion(); if (!pet) return "";
   if (Leveling.canEvolve(pet)[0]) return "¡Tu monstruo está listo para tallarse! Abre su ficha.";
-  const next = CFG.Encounters.Order.find((id) => encounterAvailable(id) && !P.cleared[id]);
+  const next = WORLD_ENCOUNTERS.find((id) => encounterAvailable(id) && !P.cleared[id]);
   if (next) return `Restaura a «${CFG.Encounters.ById[next].name}» en la Linde de las Chinampas.`;
   return Leveling.nextObjective(pet).text + ". Alimenta, juega y recoge Monedas.";
 }
@@ -1462,7 +1464,7 @@ function objectiveTarget() {
   if (s === "ChooseEgg") return eggs.EggBarro.base;
   if (s === "MeetHome" || s === "PlaceInHabitat") return lotC;
   if (s === "FirstBattle") return encounterSpots.valle_r1_e1.pos;
-  if (P.completed) { const next = CFG.Encounters.Order.find((id) => encounterAvailable(id) && !P.cleared[id]); return next ? encounterSpots[next].pos : null; }
+  if (P.completed) { const next = WORLD_ENCOUNTERS.find((id) => encounterAvailable(id) && !P.cleared[id]); return next ? encounterSpots[next].pos : null; }
   return null;
 }
 const beacon = addLabel(V(0, 0, 0), "⬇", { cls: "beacon", max: 600, visible: () => !!objectiveTarget() && !battle && !introActive });
@@ -1852,7 +1854,7 @@ function tick() {
     animateCreature(companionModel, t, dt, cMoving);
   } else if (companionModel) animateCreature(companionModel, t, dt, false);
   habitatModels.forEach((m) => m && animateCreature(m, t, dt, false));
-  for (const encId of CFG.Encounters.Order) { const c = encounterSpots[encId].creature; if (c) animateCreature(c, t, dt, false); encounterSpots[encId].fog.forEach((f, k) => { f.position.y = 1.8 + Math.sin(t * 0.6 + k) * 0.5; f.material.opacity = 0.24 + Math.sin(t * 0.7 + k) * 0.07; f.material.rotation = t * 0.05 * (k % 2 ? 1 : -1); }); }
+  for (const encId of WORLD_ENCOUNTERS) { const c = encounterSpots[encId].creature; if (c) animateCreature(c, t, dt, false); encounterSpots[encId].fog.forEach((f, k) => { f.position.y = 1.8 + Math.sin(t * 0.6 + k) * 0.5; f.material.opacity = 0.24 + Math.sin(t * 0.7 + k) * 0.07; f.material.rotation = t * 0.05 * (k % 2 ? 1 : -1); }); }
 
   // Huevos: laten con su color al acercarse (elección por intuición)
   for (const e of Object.values(eggs)) {

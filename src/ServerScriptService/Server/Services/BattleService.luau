@@ -58,7 +58,7 @@ local function start(player: Player, encounterId: string)
 		state = state,
 		encounterId = encounterId,
 		battleId = battleId,
-		participants = table.clone(p.team),
+		participants = EncounterRules.participantsFor(p, encounterId),
 		startedAt = os.time(),
 	}
 	for _, e in ipairs(Actions.markBattleStarted(p, encounterId, data.ctx(player))) do
@@ -86,7 +86,8 @@ local function conclude(player: Player, s: Session)
 			s.state.turn,
 			s.participants,
 			ctx,
-			outcome.reason
+			outcome.reason,
+			BattleEngine.summary(s.state) :: any
 		)
 	end)
 	if not okRun then
@@ -105,6 +106,14 @@ local function conclude(player: Player, s: Session)
 				firstClear = result.data.firstClear,
 				capped = result.data.capped,
 				pets = result.data.pets,
+				stars = result.data.stars,
+				newStars = result.data.newStars,
+				chests = result.data.chests,
+				codex = result.data.codex,
+				regionCleared = result.data.regionCleared,
+				regionStars = result.data.regionStars,
+				guardianRestored = result.data.guardianRestored,
+				rescueEgg = result.data.rescueEgg,
 			}
 			else nil,
 	})

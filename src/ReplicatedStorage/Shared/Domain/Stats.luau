@@ -26,16 +26,26 @@ function Stats.scale(form: string, level: number): number
 	return Stats.formFactor(form) * Stats.levelFactor(level)
 end
 
-function Stats.effective(speciesId: string, form: string, level: number, multipliers: { [string]: number }?): StatBlock
-	local species = SpeciesConfig.ById[speciesId]
-	assert(species, "Especie desconocida: " .. tostring(speciesId))
+-- Atributos efectivos a partir de un bloque de atributos (especie o Ser Sagrado).
+function Stats.effectiveFrom(
+	block: StatBlock,
+	form: string,
+	level: number,
+	multipliers: { [string]: number }?
+): StatBlock
 	local s = Stats.scale(form, level)
 	local out = {} :: any
 	for _, key in ipairs(Stats.Keys) do
 		local m = if multipliers and multipliers[key] then multipliers[key] else 1
-		out[key] = (species.stats :: any)[key] * s * m
+		out[key] = (block :: any)[key] * s * m
 	end
 	return out :: StatBlock
+end
+
+function Stats.effective(speciesId: string, form: string, level: number, multipliers: { [string]: number }?): StatBlock
+	local species = SpeciesConfig.ById[speciesId]
+	assert(species, "Especie desconocida: " .. tostring(speciesId))
+	return Stats.effectiveFrom(species.stats :: any, form, level, multipliers)
 end
 
 function Stats.maxHp(effectiveVid: number): number

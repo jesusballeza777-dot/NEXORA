@@ -50,4 +50,14 @@ function Rng.int(self: Rng, min: number, max: number): number
 	return min + math.floor(self:next() * (max - min + 1))
 end
 
+-- Semilla determinista a partir de un texto (djb2 módulo 2^31−1): p. ej. el id de un
+-- combate. Así una tirada del servidor (huevo de rescate) es reproducible en pruebas.
+function Rng.seedFromString(text: string): number
+	local h = 5381
+	for i = 1, #text do
+		h = (h * 33 + string.byte(text, i)) % MOD
+	end
+	return if h == 0 then 1 else h
+end
+
 return Rng

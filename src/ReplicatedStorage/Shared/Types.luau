@@ -57,6 +57,67 @@ export type PendingReward = {
 	unlocks: { string },
 	source: { kind: string, ref: string, battleId: string? },
 	createdAt: number,
+	-- Fase 2 (opcionales en perfiles v1 migrados)
+	chests: { string }?,
+	eggs: { string }?, -- especies (fijadas al crear la recompensa)
+	decor: { string }?,
+	titles: { string }?,
+	frames: { string }?,
+}
+
+-- ===================== Fase 2 =====================
+
+-- Registro del Álbum/Bestiario por especie (timestamps del servidor)
+export type CollectionEntry = {
+	seenAt: number?, -- visto (como Opaco o en el mundo)
+	restoredAt: number?, -- Opaco restaurado
+	broteAt: number?, -- carta del Brote obtenida
+	talladoAt: number?, -- carta del Tallado obtenida
+	count: number?, -- ejemplares obtenidos en total
+}
+
+-- Huevo: especie y rasgos fijados AL OBTENERLO (nunca se vuelve a sortear)
+export type EggInstance = {
+	id: string, -- "E<userId>-<serial>"
+	speciesId: string,
+	rarity: string,
+	traits: PetTraits,
+	source: AcquisitionSource,
+	obtainedAt: number,
+	state: "Stored" | "Incubating",
+	slot: number?,
+	startedAt: number?,
+	readyAt: number?,
+}
+
+export type IncubatorSlot = { unlocked: boolean, eggId: string? }
+
+-- Cofre: su contenido se fija al obtenerlo; abrirlo solo lo entrega
+export type ChestInstance = {
+	id: string, -- "C<userId>-<serial>"
+	chestType: string,
+	contents: { currencies: { [string]: number }, items: { [string]: number }, eggs: { { speciesId: string } } },
+	source: AcquisitionSource,
+	obtainedAt: number,
+}
+
+export type HistoryEntry = {
+	kind: string, -- "Chest" | "Egg" | "Hatch" | "Quest" | "Stage" | "Reward"
+	ref: string,
+	rarity: string?,
+	speciesId: string?,
+	detail: string?,
+	at: number,
+	source: string,
+}
+
+export type QuestSlot = { questId: string, progress: number, target: number, coins: number, claimed: boolean }
+export type QuestState = {
+	day: number,
+	daily: { QuestSlot },
+	dailyBonusClaimed: boolean,
+	week: number,
+	weekly: QuestSlot?,
 }
 
 export type Profile = {
@@ -78,12 +139,33 @@ export type Profile = {
 		cleared: { [string]: { firstClearAt: number, wins: number } },
 		repeatDay: number,
 		repeatCount: number,
+		-- Fase 2 (Acto I): estrellas por etapa, mejores turnos, premios por región/acto
+		stars: { [string]: { boolean } },
+		bestTurns: { [string]: number },
+		regionRewards: { [string]: number },
+		actRewards: { [string]: number },
+		treasureAttempts: { [string]: number },
 	},
 	onboarding: { step: string, completed: boolean, introSkipped: boolean?, startedAt: number },
 	unlocks: { [string]: number },
 	rewards: { pending: { [string]: PendingReward }, ledger: { [string]: number }, ledgerOrder: { string } },
 	firsts: { [string]: number },
 	counters: { [string]: number },
+	-- Fase 2
+	collection: { [string]: CollectionEntry },
+	eggs: { [string]: EggInstance },
+	nextEggSerial: number,
+	incubators: { IncubatorSlot },
+	chests: { [string]: ChestInstance },
+	nextChestSerial: number,
+	history: { HistoryEntry },
+	quests: QuestState,
+	codex: { [string]: number },
+	decor: { slots: { string | false }, owned: { [string]: number } },
+	showcase: { string },
+	titles: { owned: { [string]: number }, equipped: string? },
+	frames: { owned: { [string]: number }, equipped: string? },
+	guardians: { [string]: number }, -- Seres Sagrados restaurados (una copia por cuenta)
 }
 
 return {}

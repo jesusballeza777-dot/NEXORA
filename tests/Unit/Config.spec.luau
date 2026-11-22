@@ -5,6 +5,7 @@
 local T = harness.T
 local expect = T.expect
 local Species = harness.get("ReplicatedStorage.Shared.Config.Species")
+local Guardians = harness.get("ReplicatedStorage.Shared.Config.Guardians")
 local Rarities = harness.get("ReplicatedStorage.Shared.Config.Rarities")
 local Elements = harness.get("ReplicatedStorage.Shared.Config.Elements")
 local Abilities = harness.get("ReplicatedStorage.Shared.Config.Abilities")
@@ -191,17 +192,21 @@ T.describe("Contenido del vertical slice", function()
 		end
 	end)
 
-	T.it("cada encuentro usa especies jugables y bonos existentes", function()
+	T.it("cada encuentro usa especies con modelo y bonos existentes", function()
 		for _, id in ipairs(Encounters.Order) do
 			local enc = Encounters.ById[id]
-			if enc.opponent.speciesId then
-				expect(Species.ById[enc.opponent.speciesId].status).toBe("VerticalSlice")
-			else
-				for element, sp in pairs(enc.opponent.byStarterElement) do
-					expect(Species.ById[sp].status).toBe("VerticalSlice")
-					-- El primer Opaco es débil ante el inicial correspondiente (p. 48)
-					local starterStrong = Elements.ById[element].strongAgainst
-					expect(table.find(starterStrong, Species.ById[sp].elements[1]) ~= nil).toBe(true)
+			for _, opp in ipairs(enc.opponents) do
+				if opp.guardianId then
+					expect(Guardians.ById[opp.guardianId] ~= nil).toBe(true)
+				elseif opp.speciesId then
+					expect(Visuals.ById[opp.speciesId] ~= nil).toBe(true)
+				else
+					for element, sp in pairs(opp.byStarterElement) do
+						expect(Visuals.ById[sp] ~= nil).toBe(true)
+						-- El primer Opaco es débil ante el inicial correspondiente (p. 48)
+						local starterStrong = Elements.ById[element].strongAgainst
+						expect(table.find(starterStrong, Species.ById[sp].elements[1]) ~= nil).toBe(true)
+					end
 				end
 			end
 			if enc.firstClearBonus then

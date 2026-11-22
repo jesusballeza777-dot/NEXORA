@@ -216,6 +216,102 @@ local Visuals: { [string]: VisualDef } = {
 			iris = rgb(190, 220, 80),
 		},
 	},
+	-- ===== Fase 2 · Opacos del Acto I =====
+	-- Blockout provisional con ARQUETIPO PRESTADO (no es diseño): solo para que estas
+	-- especies existan como enemigos y huevos en la beta. Paletas por elemento y rasgo
+	-- de la ficha (SpeciesLore). Sustituir cuando haya concepto aprobado.
+	zunzi = {
+		archetype = "Cicada",
+		assetStatus = "Blockout",
+		broteScale = 0.85,
+		talladoScale = 1.45,
+		signatureFeature = "Arquetipo prestado (Cicada): alas rápidas de colibrí azul",
+		brote = {
+			body = rgb(70, 130, 200),
+			belly = rgb(170, 210, 236),
+			accent = rgb(40, 70, 130),
+			emissive = rgb(150, 220, 255),
+			eye = rgb(18, 20, 28),
+			iris = rgb(18, 20, 28),
+		},
+		tallado = {
+			body = rgb(50, 100, 180),
+			belly = rgb(140, 190, 226),
+			accent = rgb(220, 230, 240),
+			emissive = rgb(130, 210, 255),
+			eye = rgb(236, 240, 250),
+			iris = rgb(80, 170, 255),
+		},
+	},
+	pabilo = {
+		archetype = "Jar",
+		assetStatus = "Blockout",
+		broteScale = 0.85,
+		talladoScale = 1.45,
+		signatureFeature = "Arquetipo prestado (Jar): cuerpo de cera con pabilo encendido",
+		brote = {
+			body = rgb(240, 226, 196),
+			belly = rgb(250, 240, 220),
+			accent = rgb(232, 168, 72),
+			emissive = rgb(255, 200, 90),
+			eye = rgb(30, 24, 18),
+			iris = rgb(30, 24, 18),
+		},
+		tallado = {
+			body = rgb(232, 214, 180),
+			belly = rgb(246, 232, 204),
+			accent = rgb(214, 140, 60),
+			emissive = rgb(255, 190, 70),
+			eye = rgb(250, 240, 220),
+			iris = rgb(255, 170, 60),
+		},
+	},
+	lumbro = {
+		archetype = "Agave",
+		assetStatus = "Blockout",
+		broteScale = 0.95,
+		talladoScale = 1.55,
+		signatureFeature = "Arquetipo prestado (Agave): cuernos-farol de luz cálida",
+		brote = {
+			body = rgb(214, 176, 110),
+			belly = rgb(240, 214, 160),
+			accent = rgb(255, 210, 120),
+			emissive = rgb(255, 230, 150),
+			eye = rgb(28, 22, 16),
+			iris = rgb(28, 22, 16),
+		},
+		tallado = {
+			body = rgb(196, 150, 90),
+			belly = rgb(230, 196, 140),
+			accent = rgb(255, 200, 100),
+			emissive = rgb(255, 220, 130),
+			eye = rgb(250, 240, 220),
+			iris = rgb(255, 200, 90),
+		},
+	},
+	dienton = {
+		archetype = "Armadillo",
+		assetStatus = "Blockout",
+		broteScale = 0.95,
+		talladoScale = 1.55,
+		signatureFeature = "Arquetipo prestado (Armadillo): anillos de madera y musgo",
+		brote = {
+			body = rgb(132, 96, 64),
+			belly = rgb(186, 150, 110),
+			accent = rgb(90, 140, 80),
+			emissive = rgb(150, 210, 110),
+			eye = rgb(22, 18, 14),
+			iris = rgb(22, 18, 14),
+		},
+		tallado = {
+			body = rgb(112, 80, 52),
+			belly = rgb(170, 132, 94),
+			accent = rgb(80, 130, 70),
+			emissive = rgb(140, 200, 100),
+			eye = rgb(240, 232, 214),
+			iris = rgb(150, 210, 110),
+		},
+	},
 }
 
 -- Estilo "Opaco": la niebla gris desatura la especie; al vencerlo recupera su color.

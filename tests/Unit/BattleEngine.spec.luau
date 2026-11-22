@@ -366,3 +366,149 @@ T.describe("Balance del primer combate (simulación)", function()
 		expect(avg >= 3 and avg <= 12).toBe(true)
 	end)
 end)
+
+-- ======================================================================
+-- Fase 2: equipos, raíces del Acto I y Seres Sagrados
+-- ======================================================================
+local function teams(seed: number, mine: { any }, theirs: { any })
+	return BattleEngine.new({
+		battleId = "F2-" .. seed,
+		seed = seed,
+		sides = {
+			{ controller = "Player", team = mine },
+			{ controller = "AI", ai = "Normal", team = theirs },
+		},
+	})
+end
+
+local function findEvent(state, kind: string): any
+	for _, e in ipairs(state.log) do
+		if e.t == kind then
+			return e
+		end
+	end
+	return nil
+end
+
+T.describe("Combate Fase 2 · equipos de 1 a 3", function()
+	T.it("si cae el monstruo en campo entra el siguiente (bug: el combate se atascaba)", function()
+		local state = teams(11, { { speciesId = "kuachi", form = "Tallado", level = 20 } }, {
+			{ speciesId = "agavo", form = "Brote", level = 2, isOpaco = true },
+			{ speciesId = "barrock", form = "Brote", level = 2, isOpaco = true },
+			{ speciesId = "zizi", form = "Brote", level = 2, isOpaco = true },
+		})
+		runToEnd(state, playerPolicy, "Normal")
+		expect(state.outcome.winner).toBe(1)
+		expect(state.outcome.reason).toBe("Defeat")
+		local switches = 0
+		for _, e in ipairs(state.log) do
+			if e.t == "Switch" then
+				switches += 1
+			end
+		end
+		expect(switches).toBe(2)
+		expect(state.tally.faints[2]).toBe(3)
+	end)
+	T.it("el límite de turnos compara la vida de todo el equipo", function()
+		local state = teams(5, {
+			{ speciesId = "teselo", form = "Brote", level = 3 },
+			{ speciesId = "teselo", form = "Brote", level = 3 },
+		}, { { speciesId = "teselo", form = "Brote", level = 3, isOpaco = true } })
+		state.maxTurns = 1
+		BattleEngine.submit(state, 1, { kind = "Move", moveId = playerPolicy(state) })
+		BattleEngine.submit(state, 2, { kind = "Move", moveId = BattleAI.choose(state, 2, "Normal") })
+		BattleEngine.resolveTurn(state)
+		expect(state.outcome.reason).toBe("TurnLimit")
+		expect(state.outcome.winner).toBe(1) -- 2 monstruos sanos pesan más que 1
+	end)
+end)
+
+T.describe("Combate Fase 2 · raíces del Valle", function()
+	T.it("las raíces curan al Opaco enraizado al final del turno", function()
+		local state = teams(3, { { speciesId = "teselo", form = "Brote", level = 3 } }, {
+			{ speciesId = "barrock", form = "Brote", level = 6, isOpaco = true, rootHeal = 0.05 },
+		})
+		BattleEngine.submit(state, 1, { kind = "Move", moveId = "Pisoton" })
+		BattleEngine.submit(state, 2, { kind = "Move", moveId = BattleAI.choose(state, 2, "Normal") })
+		BattleEngine.resolveTurn(state)
+		expect(findEvent(state, "Roots") ~= nil).toBe(true)
+	end)
+	T.it("un golpe eficaz corta las raíces para el resto del combate", function()
+		-- Fuego es eficaz contra Flora: Kuachi (Fuego) contra Agavo (Flora) enraizado
+		local state = teams(7, { { speciesId = "kuachi", form = "Brote", level = 9 } }, {
+			{ speciesId = "agavo", form = "Brote", level = 9, isOpaco = true, rootHeal = 0.05 },
+		})
+		local foe = BattleEngine.active(state, 2)
+		local fireBasic = BattleEngine.defaultLoadout("kuachi", "Brote", 9)[1]
+		local guard = 0
+		while foe.rootHeal ~= nil and state.phase ~= "Ended" and guard < 10 do
+			guard += 1
+			BattleEngine.submit(state, 1, { kind = "Move", moveId = fireBasic })
+			BattleEngine.submit(state, 2, { kind = "Move", moveId = BattleAI.choose(state, 2, "Normal") })
+			BattleEngine.resolveTurn(state)
+		end
+		expect(foe.rootHeal).toBe(nil)
+		expect(state.tally.rootsCut).toBe(1)
+		expect(findEvent(state, "RootsCut") ~= nil).toBe(true)
+	end)
+end)
+
+T.describe("Combate Fase 2 · Copalia, Ser Sagrado con fases", function()
+	local Guardians = harness.get("ReplicatedStorage.Shared.Config.Guardians")
+	local function copaliaBattle(seed: number, typical: boolean?)
+		local mine = if typical
+			then {
+				{ speciesId = "kuachi", form = "Tallado", level = 15 },
+				{ speciesId = "agavo", form = "Brote", level = 12 },
+				{ speciesId = "zizi", form = "Brote", level = 12 },
+			}
+			else {
+				{ speciesId = "kuachi", form = "Tallado", level = 15 },
+				{ speciesId = "xolumi", form = "Tallado", level = 14 },
+				{ speciesId = "teselo", form = "Tallado", level = 14 },
+			}
+		return teams(seed, mine, {
+			{
+				speciesId = "copalia",
+				guardianId = "copalia",
+				form = "Tallado",
+				level = Guardians.ById.copalia.level,
+				isOpaco = true,
+			},
+		})
+	end
+	T.it("empieza enraizada (Raíz Madre) y pasa a la fase 2 al 50 % de VID", function()
+		local state = copaliaBattle(21)
+		local boss = BattleEngine.active(state, 2)
+		expect(boss.guardianId).toBe("copalia")
+		expect(boss.rootHeal ~= nil).toBe(true)
+		runToEnd(state, playerPolicy, "Normal")
+		local phase = findEvent(state, "Phase")
+		expect(phase ~= nil).toBe(true)
+		expect(phase.phase).toBe(2)
+		-- Fase 2: faroles apagados → −20 % de precisión para el equipo del jugador
+		expect(math.abs(state.field.accuracy[1] - -0.2) < 1e-9).toBe(true)
+		expect(boss.rootHeal).toBe(nil)
+	end)
+	T.it("es un reto ganable al nivel recomendado, sin ser un trámite", function()
+		local function rate(typical: boolean): (number, number)
+			local wins, turns = 0, 0
+			for seed = 1, 80 do
+				local state = copaliaBattle(seed * 7919, typical)
+				runToEnd(state, playerPolicy, "Normal")
+				if state.outcome.winner == 1 then
+					wins += 1
+				end
+				turns += state.turn
+			end
+			return wins / 80, turns / 80
+		end
+		local typicalRate, typicalTurns = rate(true)
+		local strongRate = rate(false)
+		-- Equipo típico (inicial Tallado + 2 Brotes) con política ingenua: reto real
+		expect(typicalRate >= 0.4 and typicalRate <= 0.8).toBe(true)
+		expect(typicalTurns >= 5).toBe(true)
+		-- Equipo preparado (3 Tallados): casi siempre gana
+		expect(strongRate >= 0.85).toBe(true)
+	end)
+end)

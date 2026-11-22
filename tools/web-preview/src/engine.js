@@ -17,6 +17,7 @@
     const Elements = CONFIG.Elements;
     const Encounters = CONFIG.Encounters;
     const Rarities = CONFIG.Rarities;
+    const Guardians = CONFIG.Guardians || { ById: {} };
 
     const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
     const round = (x) => Math.floor(x + 0.5);
@@ -41,16 +42,16 @@
       levelFactor: (level) => Progression.LevelScaleBase + Progression.LevelScalePerLevel * level,
       formFactor: (form) => Progression.FormFactor[form] ?? Progression.FormFactor.Brote,
       scale(form, level) { return Stats.formFactor(form) * Stats.levelFactor(level); },
-      effective(speciesId, form, level, multipliers) {
-        const sp = Species.ById[speciesId];
+      effectiveFrom(block, form, level, multipliers) {
         const s = Stats.scale(form, level);
         const out = {};
         for (const k of KEYS) {
           const m = multipliers && multipliers[k] ? multipliers[k] : 1;
-          out[k] = sp.stats[k] * s * m;
+          out[k] = block[k] * s * m;
         }
         return out;
       },
+      effective(speciesId, form, level, multipliers) { return Stats.effectiveFrom(Species.ById[speciesId].stats, form, level, multipliers); },
       maxHp: (vid) => Math.max(1, round(vid * Progression.HpPerVid)),
       formBase(speciesId, form) {
         const sp = Species.ById[speciesId];
@@ -137,9 +138,22 @@
       return moves;
     };
     BE.createCombatant = function (spec, side, slot) {
-      const sp = Species.ById[spec.speciesId];
       let multipliers = null;
       if (spec.modifier) { const mod = Encounters.Modifiers[spec.modifier]; multipliers = mod ? mod.statMultipliers : null; }
+      const g = spec.guardianId ? Guardians.ById[spec.guardianId] : null;
+      if (g) {
+        const base = Stats.effectiveFrom(g.stats, spec.form, spec.level, multipliers);
+        const maxHp = round(Stats.maxHp(base.VID) * g.hpMultiplier);
+        return {
+          uid: `S${side}C${slot}`, side, slot, petId: null, speciesId: spec.speciesId, form: spec.form,
+          level: spec.level, name: spec.isOpaco ? g.shortName + " opacada" : g.shortName, rarity: g.rarity, isOpaco: !!spec.isOpaco,
+          elements: g.elements.slice(), base, scale: Stats.scale(spec.form, spec.level), maxHp, hp: maxHp, savia: Combat.Savia.Start,
+          nexoUsed: 0, moves: spec.loadout || g.moves.slice(), talent: null, statuses: {}, mods: [], shield: null, block: 0, dodge: 0,
+          reflect: null, hot: null, empowerNext: 0, nextSpecialFails: false, damagedThisTurn: false, wasHitLastTurn: false,
+          actedThisTurn: false, fainted: false, guardianId: g.id, rootHeal: spec.rootHeal ?? g.rootHeal, phases: g.phases, phaseIndex: 1,
+        };
+      }
+      const sp = Species.ById[spec.speciesId];
       const base = Stats.effective(spec.speciesId, spec.form, spec.level, multipliers);
       const maxHp = Stats.maxHp(base.VID);
       let name = spec.nickname || (spec.form === "Tallado" ? sp.talladoName : sp.broteName);
@@ -151,6 +165,7 @@
         moves: spec.loadout || BE.defaultLoadout(spec.speciesId, spec.form, spec.level), talent: sp.talent || null,
         statuses: {}, mods: [], shield: null, block: 0, dodge: 0, reflect: null, hot: null, empowerNext: 0,
         nextSpecialFails: false, damagedThisTurn: false, wasHitLastTurn: false, actedThisTurn: false, fainted: false,
+        guardianId: null, rootHeal: spec.rootHeal ?? null, phases: null, phaseIndex: 1,
       };
     };
     BE.new = function (setup) {
@@ -159,7 +174,8 @@
         team: s.team.map((spec, slot) => BE.createCombatant(spec, i + 1, slot + 1)),
       }));
       const state = { battleId: setup.battleId, seed: setup.seed, rng: new Rng(setup.seed), turn: 0,
-        maxTurns: setup.maxTurns || Combat.MaxTurns, phase: "Choosing", sides, pending: {}, outcome: null, log: [] };
+        maxTurns: setup.maxTurns || Combat.MaxTurns, phase: "Choosing", sides, pending: {}, outcome: null, log: [],
+        field: { accuracy: [0, 0] }, tally: { faints: [0, 0], elements: [{}, {}], rootsCut: 0, nexoUsed: [0, 0] } };
       for (const side of sides) {
         const c = side.team[side.active];
         const t = talentOf(c);
@@ -234,7 +250,20 @@
       emit(state, events, { t: "Cleanse", target: target.uid, removed });
     }
     function faintIfNeeded(state, events, c) {
-      if (!c.fainted && c.hp <= 0) { c.hp = 0; c.fainted = true; emit(state, events, { t: "Faint", target: c.uid }); }
+      if (!c.fainted && c.hp <= 0) { c.hp = 0; c.fainted = true; state.tally.faints[c.side - 1] += 1; emit(state, events, { t: "Faint", target: c.uid }); }
+    }
+    function checkPhase(state, events, c) {
+      const phases = c.phases;
+      if (!phases || c.fainted) return;
+      const next = phases[c.phaseIndex - 1];
+      if (!next || c.hp / c.maxHp > next.threshold) return;
+      c.phaseIndex += 1;
+      emit(state, events, { t: "Phase", target: c.uid, phase: c.phaseIndex, id: next.id, text: next.text });
+      for (const e of next.effects) {
+        if (e.type === "EndRoots") { if (c.rootHeal != null) { c.rootHeal = null; emit(state, events, { t: "RootsEnd", target: c.uid }); } }
+        else if (e.type === "SideAccuracy") { const foe = c.side === 1 ? 2 : 1; state.field.accuracy[foe - 1] += e.amount; emit(state, events, { t: "Field", side: foe, accuracy: state.field.accuracy[foe - 1] }); }
+        else if (e.type === "GainSavia") { c.savia = Math.min(Combat.Savia.Max, c.savia + e.amount); emit(state, events, { t: "Savia", target: c.uid, savia: c.savia, delta: e.amount }); }
+      }
     }
     function dealDamage(state, events, target, amount, ignoreShields, info) {
       if (target.block > 0) { target.block = 0; emit(state, events, { t: "Block", target: target.uid }); return [0, true]; }
@@ -249,6 +278,7 @@
       target.damagedThisTurn = true;
       emit(state, events, Object.assign({ t: "Damage", target: target.uid, amount: remaining, hp: Math.max(0, target.hp), maxHp: target.maxHp }, info));
       faintIfNeeded(state, events, target);
+      checkPhase(state, events, target);
       return [remaining, false];
     }
     BE.computeDamage = function (state, attacker, target, move, power) {
@@ -277,24 +307,25 @@
       if (isBasic && tt && tt.kind === "ReduceBasicDamageTaken") dmg *= 1 - (tt.percent || 0);
       return { amount: Math.max(1, round(dmg)), effectiveness: ElementChart.classify(elem), crit, multiplier: elem };
     };
-    function accuracyFor(attacker, target) {
-      const acc = Combat.BaseAccuracy * (1 + modSum(attacker, "Precision"));
+    function accuracyFor(state, attacker, target) {
+      const acc = Combat.BaseAccuracy * (1 + modSum(attacker, "Precision") + state.field.accuracy[attacker.side - 1]);
       const evasion = clamp(modSum(target, "Evasion"), 0, Combat.MaxEvasion);
       return clamp(acc - evasion, Combat.MinAccuracy, 1);
     }
     function executeMove(state, events, actor, target, move) {
       const cost = BE.moveCost(move);
       if (move.kind === "Basic") actor.savia = Math.min(Combat.Savia.Max, actor.savia + Combat.Savia.BasicGain);
-      else { actor.savia -= cost; if (move.kind === "Nexo") actor.nexoUsed += 1; }
+      else { actor.savia -= cost; if (move.kind === "Nexo") { actor.nexoUsed += 1; state.tally.nexoUsed[actor.side - 1] += 1; } }
+      state.tally.elements[actor.side - 1][move.element] = true;
       emit(state, events, { t: "Move", actor: actor.uid, move: move.id, savia: actor.savia });
       if ((move.kind === "Special" || move.kind === "Signature") && actor.nextSpecialFails) {
         actor.nextSpecialFails = false; emit(state, events, { t: "Fail", actor: actor.uid, reason: "Sabotage" }); return;
       }
       const ignoreShields = move.effects.some((e) => e.type === "IgnoreShields");
-      let totalDamage = 0, landed = true, contactHit = false;
+      let totalDamage = 0, landed = true, contactHit = false, strongHit = false;
       const thorns = target.shield && target.shield.thornsStatus ? { status: target.shield.thornsStatus, chance: target.shield.thornsChance ?? 1 } : null;
       if (move.power > 0) {
-        const acc = accuracyFor(actor, target);
+        const acc = accuracyFor(state, actor, target);
         if (acc < 1 && !state.rng.chance(acc)) { emit(state, events, { t: "Miss", actor: actor.uid, target: target.uid }); landed = false; }
         else if (target.dodge > 0) { target.dodge = 0; emit(state, events, { t: "Dodge", target: target.uid }); landed = false; }
         else {
@@ -305,6 +336,7 @@
             const [dealt, blocked] = dealDamage(state, events, target, roll.amount, ignoreShields, { source: actor.uid, move: move.id, eff: roll.effectiveness, crit: roll.crit });
             totalDamage += dealt;
             if (!blocked) contactHit = true;
+            if (dealt > 0 && roll.effectiveness === "Strong") strongHit = true;
             if (target.reflect && dealt > 0) {
               const f = target.reflect.filter;
               if (f === "All" || (f === "Special" && move.kind !== "Basic")) {
@@ -319,6 +351,9 @@
         }
       }
       if (!landed) return;
+      if (strongHit && target.rootHeal != null && !target.fainted) {
+        target.rootHeal = null; state.tally.rootsCut += 1; emit(state, events, { t: "RootsCut", target: target.uid });
+      }
       for (const eff of move.effects) {
         const kind = eff.type;
         const to = eff.target === "Target" ? target : actor;
@@ -329,7 +364,10 @@
           if (!to.fainted && state.rng.chance(chance)) applyStatus(state, events, to, eff.status, eff.turns ?? 1);
         } else if (kind === "StatMod") {
           if (!to.fainted && state.rng.chance(eff.chance ?? 1)) applyMod(state, events, to, eff.stat, eff.amount || 0, eff.turns ?? 1);
-        } else if (kind === "Heal") heal(state, events, actor, eff.percent || 0);
+        } else if (kind === "Heal") {
+          if (eff.target === "Team") { for (const ally of state.sides[actor.side - 1].team) heal(state, events, ally, eff.percent || 0); }
+          else heal(state, events, actor, eff.percent || 0);
+        }
         else if (kind === "HealOverTime") { actor.hot = { percent: eff.percent || 0, turns: durationFor(actor, eff.turns ?? 1) }; emit(state, events, { t: "Regen", target: actor.uid, turns: eff.turns }); }
         else if (kind === "Shield") {
           const amount = round(actor.maxHp * (eff.percent || 0));
@@ -373,6 +411,20 @@
       emit(state, events, { t: "End", winner, reason, turn: state.turn });
     }
     const sideDefeated = (side) => side.team.every((c) => c.fainted);
+    function bringInNext(state, events) {
+      for (const side of state.sides) {
+        const current = side.team[side.active];
+        if (!current.fainted) continue;
+        const i = side.team.findIndex((c) => !c.fainted);
+        if (i < 0) continue;
+        const c = side.team[i];
+        side.active = i; c.damagedThisTurn = false; c.actedThisTurn = false;
+        emit(state, events, { t: "Switch", side: side.index, from: current.uid, to: c.uid });
+        const t = talentOf(c);
+        if (t && t.kind === "BattleStartSavia") { c.savia = Math.min(Combat.Savia.Max, c.savia + (t.amount ?? 1)); emit(state, events, { t: "Talent", target: c.uid, talent: t.id, savia: c.savia }); }
+      }
+    }
+    const teamHpRatio = (side) => { let hp = 0, max = 0; for (const c of side.team) { hp += Math.max(0, c.hp); max += c.maxHp; } return max > 0 ? hp / max : 0; };
     function endOfTurn(state, events) {
       for (const side of state.sides) {
         const c = side.team[side.active];
@@ -384,6 +436,7 @@
             faintIfNeeded(state, events, c);
           }
           if (!c.fainted && c.hot) heal(state, events, c, c.hot.percent);
+          if (!c.fainted && c.rootHeal != null && c.hp < c.maxHp) { emit(state, events, { t: "Roots", target: c.uid }); heal(state, events, c, c.rootHeal); }
           const t = talentOf(c);
           if (!c.fainted && t && t.kind === "EndTurnHealIfUndamaged" && !c.damagedThisTurn && c.hp < c.maxHp) heal(state, events, c, t.percent || 0);
         }
@@ -451,14 +504,15 @@
         for (const i of [1, 2]) {
           if (sideDefeated(state.sides[i - 1])) { finish(state, events, i === 1 ? 2 : 1, "Defeat"); break; }
         }
+        if (state.phase !== "Ended") bringInNext(state, events);
       }
       if (state.phase !== "Ended") {
         endOfTurn(state, events);
         for (const i of [1, 2]) if (state.phase !== "Ended" && sideDefeated(state.sides[i - 1])) finish(state, events, i === 1 ? 2 : 1, "Defeat");
+        if (state.phase !== "Ended") bringInNext(state, events);
       }
       if (state.phase !== "Ended" && state.turn >= state.maxTurns) {
-        const c1 = BE.active(state, 1), c2 = BE.active(state, 2);
-        finish(state, events, c1.hp / c1.maxHp > c2.hp / c2.maxHp ? 1 : 2, "TurnLimit");
+        finish(state, events, teamHpRatio(state.sides[0]) > teamHpRatio(state.sides[1]) ? 1 : 2, "TurnLimit");
       }
       state.pending = {};
       return events;

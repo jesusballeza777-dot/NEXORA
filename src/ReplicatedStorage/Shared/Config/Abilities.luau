@@ -106,6 +106,17 @@ add({
 	text = "Limpia los efectos negativos del equipo.",
 })
 
+-- Golpe Nexo de Copalia (Ser Sagrado, p. 12): no forma parte del reparto por elemento.
+add({
+	id = "BosqueDeFaroles",
+	name = "Bosque de Faroles",
+	element = "Luz",
+	kind = "Nexo",
+	power = 120,
+	effects = { eff({ type = "Heal", target = "Team", percent = 0.40 }) },
+	text = "Cura 40 % al equipo.",
+})
+
 -- ===================== FUEGO =====================
 add({
 	id = "Chispazo",

@@ -8,6 +8,8 @@ local Freeze = require(script.Parent.Parent.Util.Freeze)
 return Freeze.deep({
 	InventoryCapacity = 40, -- ampliable +10 por 5 000 Monedas hasta 100 (fuera de Fase 1)
 	InventoryMaxCapacity = 100,
+	-- Ampliación del Vivero: +10 lugares por 5 000 Monedas (p. 30)
+	InventoryExpansion = { step = 10, price = { Monedas = 5000 } },
 	SlotsPerHabitat = 4,
 	VitrinaSlots = 3,
 	MaxCompanions = 1, -- la arquitectura admite más; el prototipo muestra uno (Genesis 6.D)

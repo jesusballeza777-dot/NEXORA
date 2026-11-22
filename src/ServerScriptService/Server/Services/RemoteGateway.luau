@@ -70,6 +70,21 @@ local function reject(player: Player, action: string, reason: string)
 	return { ok = false, err = reason }
 end
 
+-- Cola de espera por jugador: hilos de peticiones pendientes (máximo MAX_QUEUED)
+local MAX_QUEUED = 8
+local waiting: { [Player]: { thread } } = {}
+
+-- Cede el turno a la siguiente petición en cola (el turno pasa sin liberar "busy").
+local function releaseTurn(player: Player)
+	local queue = waiting[player]
+	local nextThread = if queue then table.remove(queue, 1) else nil
+	if nextThread then
+		task.spawn(nextThread)
+	else
+		busy[player] = nil
+	end
+end
+
 local function handle(player: Player, action: any, seq: any, ...: any)
 	if type(action) ~= "string" or not Contract.Actions[action] or not handlers[action] then
 		return reject(player, if type(action) == "string" then action else "?", "UnknownAction")
@@ -107,18 +122,24 @@ local function handle(player: Player, action: any, seq: any, ...: any)
 		return { ok = false, err = "ProfileNotReady" }
 	end
 
-	-- Procesamiento en serie: una petición por jugador a la vez
-	local waited = 0
-	while busy[player] do
-		task.wait(0.05)
-		waited += 0.05
-		if waited > 5 then
+	-- Procesamiento en serie: una petición por jugador a la vez. Las que llegan mientras
+	-- otra se procesa esperan en una cola FIFO (sin sondeo) y reciben el turno al terminar.
+	if busy[player] then
+		local queue = waiting[player] or {}
+		waiting[player] = queue
+		if #queue >= MAX_QUEUED then
+			return { ok = false, err = "Busy" }
+		end
+		table.insert(queue, coroutine.running())
+		coroutine.yield()
+		if not player.Parent then
+			releaseTurn(player)
 			return { ok = false, err = "Busy" }
 		end
 	end
 	busy[player] = true
 	local success, result = pcall(handlers[action], player, table.unpack(args))
-	busy[player] = nil
+	releaseTurn(player)
 	if not success then
 		Log.error("%s falló para %d: %s", action, player.UserId, tostring(result))
 		return { ok = false, err = "ServerError" }
@@ -138,6 +159,14 @@ function RemoteGateway.start()
 		buckets[player] = nil
 		busy[player] = nil
 		rejectLog[player] = nil
+		-- Despierta a las peticiones en cola: verán que el jugador se fue y saldrán
+		local queue = waiting[player]
+		waiting[player] = nil
+		if queue then
+			for _, thread in ipairs(queue) do
+				task.spawn(thread)
+			end
+		end
 	end)
 end
 

@@ -162,7 +162,13 @@ end
 function WorldController.syncOpacos(view: any)
 	for id, enc in pairs(Encounters.ById) do
 		local e = view.encounters[id]
-		local want = if e and e.unlocked and e.opponent then e.opponent .. (if e.cleared then "R" else "O") else ""
+		-- Solo las etapas con marcador físico en la Linde tienen un Opaco en el mundo
+		local want = if enc.worldMarker
+				and e
+				and e.unlocked
+				and e.opponent
+			then e.opponent .. (if e.cleared then "R" else "O")
+			else ""
 		local cur = opacos[id]
 		if (cur and cur.key or "") ~= want then
 			if cur then

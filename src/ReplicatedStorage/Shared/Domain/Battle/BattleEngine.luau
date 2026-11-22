@@ -4,8 +4,10 @@
 -- * Puro y determinista: no usa APIs de Roblox; todo azar sale de un Rng sembrado.
 --   El servidor es el único que lo ejecuta (BattleService); el cliente solo recibe
 --   eventos para animarlos. Los tests de Lune lo ejecutan directamente.
--- * Equipos de hasta 3 por lado con un monstruo en campo (arquitectura de Arena 1v1);
---   el vertical slice usa 1 contra 1. Los cambios de monstruo llegan en Fase 2.
+-- * Equipos de hasta 3 por lado con un monstruo en campo (arquitectura de Arena 1v1).
+--   Cuando el monstruo en campo cae, entra el siguiente del equipo ("Switch").
+-- * Reglas del Acto I: raíces que curan a los Opacos enraizados al final de cada turno
+--   (un golpe eficaz las corta) y Seres Sagrados con fases (Config/Guardians).
 -- * Duraciones: cuentan finales de turno. Si el afectado ya actuó este turno, el
 --   efecto dura un turno más, para que "1 turno" siempre afecte a una acción real.
 --
@@ -22,6 +24,7 @@ local Combat = require(Config.Combat)
 local Talents = require(Config.Talents)
 local SpeciesConfig = require(Config.Species)
 local Encounters = require(Config.Encounters)
+local Guardians = require(Config.Guardians)
 local Progression = require(Config.Progression)
 local Stats = require(Shared.Domain.Stats)
 local ElementChart = require(Shared.Domain.ElementChart)
@@ -39,6 +42,8 @@ export type CombatantSpec = {
 	isOpaco: boolean?,
 	modifier: string?,
 	loadout: { string }?,
+	guardianId: string?, -- Ser Sagrado (Config/Guardians) en lugar de especie
+	rootHeal: number?, -- raíces: % de VID que recupera al final de cada turno
 }
 
 export type Mod = { stat: string, amount: number, turns: number }
@@ -76,6 +81,10 @@ export type Combatant = {
 	wasHitLastTurn: boolean,
 	actedThisTurn: boolean,
 	fainted: boolean,
+	guardianId: string?,
+	rootHeal: number?,
+	phases: { Guardians.PhaseDef }?,
+	phaseIndex: number,
 }
 
 export type Side = {
@@ -101,6 +110,10 @@ export type BattleState = {
 	pending: { [number]: Action },
 	outcome: { winner: number?, reason: string }?,
 	log: { Event },
+	-- Modificadores de campo por lado (p. ej. faroles apagados: −20 % de precisión)
+	field: { accuracy: { number } },
+	-- Datos para estrellas y retos: caídos por lado, elementos usados, raíces cortadas
+	tally: { faints: { number }, elements: { { [string]: boolean } }, rootsCut: number, nexoUsed: { number } },
 }
 
 local BattleEngine = {}
@@ -142,13 +155,56 @@ function BattleEngine.defaultLoadout(speciesId: string, form: string, level: num
 end
 
 function BattleEngine.createCombatant(spec: CombatantSpec, side: number, slot: number): Combatant
-	local species = SpeciesConfig.ById[spec.speciesId]
-	assert(species, "Especie desconocida: " .. spec.speciesId)
 	local multipliers = nil
 	if spec.modifier then
 		local mod = Encounters.Modifiers[spec.modifier]
 		multipliers = if mod then mod.statMultipliers else nil
 	end
+	local guardian = if spec.guardianId then Guardians.ById[spec.guardianId] else nil
+	if guardian then
+		local base = Stats.effectiveFrom(guardian.stats :: any, spec.form, spec.level, multipliers :: any)
+		local maxHp = math.floor(Stats.maxHp(base.VID) * guardian.hpMultiplier + 0.5)
+		return {
+			uid = string.format("S%dC%d", side, slot),
+			side = side,
+			slot = slot,
+			petId = nil,
+			speciesId = spec.speciesId,
+			form = spec.form,
+			level = spec.level,
+			name = if spec.isOpaco then guardian.shortName .. " opacada" else guardian.shortName,
+			rarity = guardian.rarity,
+			isOpaco = spec.isOpaco == true,
+			elements = table.clone(guardian.elements),
+			base = base :: any,
+			scale = Stats.scale(spec.form, spec.level),
+			maxHp = maxHp,
+			hp = maxHp,
+			savia = Combat.Savia.Start,
+			nexoUsed = 0,
+			moves = spec.loadout or table.clone(guardian.moves),
+			talent = nil,
+			statuses = {},
+			mods = {},
+			shield = nil,
+			block = 0,
+			dodge = 0,
+			reflect = nil,
+			hot = nil,
+			empowerNext = 0,
+			nextSpecialFails = false,
+			damagedThisTurn = false,
+			wasHitLastTurn = false,
+			actedThisTurn = false,
+			fainted = false,
+			guardianId = guardian.id,
+			rootHeal = spec.rootHeal or guardian.rootHeal,
+			phases = guardian.phases,
+			phaseIndex = 1,
+		}
+	end
+	local species = SpeciesConfig.ById[spec.speciesId]
+	assert(species, "Especie desconocida: " .. spec.speciesId)
 	local base = Stats.effective(spec.speciesId, spec.form, spec.level, multipliers :: any)
 	local maxHp = Stats.maxHp(base.VID)
 	local name = spec.nickname or (if spec.form == "Tallado" then species.talladoName else species.broteName)
@@ -188,6 +244,10 @@ function BattleEngine.createCombatant(spec: CombatantSpec, side: number, slot: n
 		wasHitLastTurn = false,
 		actedThisTurn = false,
 		fainted = false,
+		guardianId = nil,
+		rootHeal = spec.rootHeal,
+		phases = nil,
+		phaseIndex = 1,
 	}
 end
 
@@ -224,6 +284,8 @@ function BattleEngine.new(setup: BattleSetup): BattleState
 		pending = {},
 		outcome = nil,
 		log = {},
+		field = { accuracy = { 0, 0 } },
+		tally = { faints = { 0, 0 }, elements = { {}, {} }, rootsCut = 0, nexoUsed = { 0, 0 } },
 	}
 	-- Talentos de inicio de combate
 	for _, side in ipairs(sides) do
@@ -416,7 +478,38 @@ local function faintIfNeeded(state: BattleState, events: { Event }, c: Combatant
 	if not c.fainted and c.hp <= 0 then
 		c.hp = 0
 		c.fainted = true
+		state.tally.faints[c.side] += 1
 		emit(state, events, { t = "Faint", target = c.uid })
+	end
+end
+
+-- Fases de Ser Sagrado: al bajar del umbral de VID cambia las reglas del combate.
+local function checkPhase(state: BattleState, events: { Event }, c: Combatant)
+	local phases = c.phases
+	if not phases or c.fainted then
+		return
+	end
+	local nextPhase = phases[c.phaseIndex]
+	if not nextPhase or c.hp / c.maxHp > nextPhase.threshold then
+		return
+	end
+	c.phaseIndex += 1
+	emit(state, events, { t = "Phase", target = c.uid, phase = c.phaseIndex, id = nextPhase.id, text = nextPhase.text })
+	for _, eff in ipairs(nextPhase.effects) do
+		local e = eff :: any
+		if e.type == "EndRoots" then
+			if c.rootHeal then
+				c.rootHeal = nil
+				emit(state, events, { t = "RootsEnd", target = c.uid })
+			end
+		elseif e.type == "SideAccuracy" then
+			local foe = if c.side == 1 then 2 else 1
+			state.field.accuracy[foe] += e.amount
+			emit(state, events, { t = "Field", side = foe, accuracy = state.field.accuracy[foe] })
+		elseif e.type == "GainSavia" then
+			c.savia = math.min(Combat.Savia.Max, c.savia + e.amount)
+			emit(state, events, { t = "Savia", target = c.uid, savia = c.savia, delta = e.amount })
+		end
 	end
 end
 
@@ -455,6 +548,7 @@ local function dealDamage(
 	end
 	emit(state, events, e)
 	faintIfNeeded(state, events, target)
+	checkPhase(state, events, target)
 	return remaining, false
 end
 
@@ -528,8 +622,8 @@ end
 -- Ejecución de una jugada
 -- ======================================================================
 
-local function accuracyFor(attacker: Combatant, target: Combatant): number
-	local acc = Combat.BaseAccuracy * (1 + modSum(attacker, "Precision"))
+local function accuracyFor(state: BattleState, attacker: Combatant, target: Combatant): number
+	local acc = Combat.BaseAccuracy * (1 + modSum(attacker, "Precision") + state.field.accuracy[attacker.side])
 	local evasion = math.clamp(modSum(target, "Evasion"), 0, Combat.MaxEvasion)
 	return math.clamp(acc - evasion, Combat.MinAccuracy, 1)
 end
@@ -542,8 +636,10 @@ local function executeMove(state: BattleState, events: { Event }, actor: Combata
 		actor.savia -= cost
 		if move.kind == "Nexo" then
 			actor.nexoUsed += 1
+			state.tally.nexoUsed[actor.side] += 1
 		end
 	end
+	state.tally.elements[actor.side][move.element] = true
 	emit(state, events, { t = "Move", actor = actor.uid, move = move.id, savia = actor.savia })
 
 	if (move.kind == "Special" or move.kind == "Signature") and actor.nextSpecialFails then
@@ -560,13 +656,14 @@ local function executeMove(state: BattleState, events: { Event }, actor: Combata
 	end
 
 	local totalDamage = 0
+	local strongHit = false
 	local landed = true
 	local contactHit = false -- al menos un impacto no bloqueado (para espinas/contacto)
 	local thorns = if target.shield and target.shield.thornsStatus
 		then { status = target.shield.thornsStatus, chance = target.shield.thornsChance or 1 }
 		else nil
 	if move.power > 0 then
-		local acc = accuracyFor(actor, target)
+		local acc = accuracyFor(state, actor, target)
 		if acc < 1 and not state.rng:chance(acc) then
 			emit(state, events, { t = "Miss", actor = actor.uid, target = target.uid })
 			landed = false
@@ -591,6 +688,9 @@ local function executeMove(state: BattleState, events: { Event }, actor: Combata
 				if not blocked then
 					contactHit = true
 				end
+				if dealt > 0 and roll.effectiveness == "Strong" then
+					strongHit = true
+				end
 				-- Reflejo del defensor
 				if target.reflect and dealt > 0 then
 					local f = target.reflect.filter
@@ -612,6 +712,13 @@ local function executeMove(state: BattleState, events: { Event }, actor: Combata
 
 	if not landed then
 		return
+	end
+
+	-- Raíces del Acto I: un golpe eficaz las corta para el resto del combate
+	if strongHit and target.rootHeal and not target.fainted then
+		target.rootHeal = nil
+		state.tally.rootsCut += 1
+		emit(state, events, { t = "RootsCut", target = target.uid })
 	end
 
 	-- Efectos de la jugada (en orden de lista)
@@ -636,7 +743,13 @@ local function executeMove(state: BattleState, events: { Event }, actor: Combata
 				applyMod(state, events, to, eff.stat :: string, eff.amount or 0, eff.turns or 1)
 			end
 		elseif kind == "Heal" then
-			heal(state, events, actor, eff.percent or 0)
+			if eff.target == "Team" then
+				for _, ally in ipairs(state.sides[actor.side].team) do
+					heal(state, events, ally, eff.percent or 0)
+				end
+			else
+				heal(state, events, actor, eff.percent or 0)
+			end
 		elseif kind == "HealOverTime" then
 			actor.hot = { percent = eff.percent or 0, turns = durationFor(actor, eff.turns or 1) }
 			emit(state, events, { t = "Regen", target = actor.uid, turns = eff.turns })
@@ -795,6 +908,38 @@ local function sideDefeated(side: Side): boolean
 	return true
 end
 
+-- Si el monstruo en campo cayó y quedan más, entra el siguiente del equipo.
+local function bringInNext(state: BattleState, events: { Event })
+	for _, side in ipairs(state.sides) do
+		local current = side.team[side.active]
+		if current.fainted then
+			for i, c in ipairs(side.team) do
+				if not c.fainted then
+					side.active = i
+					c.damagedThisTurn = false
+					c.actedThisTurn = false
+					emit(state, events, { t = "Switch", side = side.index, from = current.uid, to = c.uid })
+					local t = talentOf(c)
+					if t and t.kind == "BattleStartSavia" then
+						c.savia = math.min(Combat.Savia.Max, c.savia + (t.amount or 1))
+						emit(state, events, { t = "Talent", target = c.uid, talent = t.id, savia = c.savia })
+					end
+					break
+				end
+			end
+		end
+	end
+end
+
+local function teamHpRatio(side: Side): number
+	local hp, max = 0, 0
+	for _, c in ipairs(side.team) do
+		hp += math.max(0, c.hp)
+		max += c.maxHp
+	end
+	return if max > 0 then hp / max else 0
+end
+
 local function endOfTurn(state: BattleState, events: { Event })
 	for _, side in ipairs(state.sides) do
 		local c = side.team[side.active]
@@ -813,6 +958,11 @@ local function endOfTurn(state: BattleState, events: { Event })
 			-- Curación por turnos
 			if not c.fainted and c.hot then
 				heal(state, events, c, c.hot.percent)
+			end
+			-- Raíces (regla del Valle / Raíz Madre)
+			if not c.fainted and c.rootHeal and c.hp < c.maxHp then
+				emit(state, events, { t = "Roots", target = c.uid })
+				heal(state, events, c, c.rootHeal :: number)
 			end
 			-- Talento: Regeneración
 			local t = talentOf(c)
@@ -974,6 +1124,9 @@ function BattleEngine.resolveTurn(state: BattleState): { Event }
 				break
 			end
 		end
+		if state.phase ~= "Ended" then
+			bringInNext(state, events)
+		end
 	end
 
 	if state.phase ~= "Ended" then
@@ -983,16 +1136,30 @@ function BattleEngine.resolveTurn(state: BattleState): { Event }
 				finish(state, events, if i == 1 then 2 else 1, "Defeat")
 			end
 		end
+		if state.phase ~= "Ended" then
+			bringInNext(state, events)
+		end
 	end
 
 	if state.phase ~= "Ended" and state.turn >= state.maxTurns then
-		local c1, c2 = BattleEngine.active(state, 1), BattleEngine.active(state, 2)
-		local r1, r2 = c1.hp / c1.maxHp, c2.hp / c2.maxHp
+		local r1, r2 = teamHpRatio(state.sides[1]), teamHpRatio(state.sides[2])
 		finish(state, events, if r1 > r2 then 1 else 2, "TurnLimit")
 	end
 
 	state.pending = {}
 	return events
+end
+
+-- Resumen del combate para estrellas y retos (lado del jugador = 1).
+function BattleEngine.summary(state: BattleState): { [string]: any }
+	return {
+		turns = state.turn,
+		faints = state.tally.faints[1],
+		elements = table.clone(state.tally.elements[1]),
+		rootsCut = state.tally.rootsCut,
+		teamSize = #state.sides[1].team,
+		nexoUsed = state.tally.nexoUsed[1],
+	}
 end
 
 -- Instantánea serializable para el cliente (sin Rng ni datos internos).
@@ -1022,6 +1189,9 @@ function BattleEngine.snapshot(state: BattleState): { [string]: any }
 				shield = if c.shield then c.shield.amount else 0,
 				fainted = c.fainted,
 				moves = c.moves,
+				rooted = c.rootHeal ~= nil,
+				guardianId = c.guardianId,
+				phase = c.phaseIndex,
 			})
 		end
 		table.insert(sides, { index = side.index, controller = side.controller, active = side.active, team = team })
@@ -1032,6 +1202,12 @@ function BattleEngine.snapshot(state: BattleState): { [string]: any }
 		phase = state.phase,
 		sides = sides,
 		outcome = state.outcome,
+		fieldAccuracy = table.clone(state.field.accuracy),
+		tally = {
+			faints = table.clone(state.tally.faints),
+			rootsCut = state.tally.rootsCut,
+			nexoUsed = table.clone(state.tally.nexoUsed),
+		},
 	}
 end
 

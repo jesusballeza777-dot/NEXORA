@@ -9,8 +9,14 @@ local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Economy = require(Shared.Config.Economy)
 local RewardsConfig = require(Shared.Config.Rewards)
 local Types = require(Shared.Types)
+local Chests = require(Shared.Config.Chests)
+local Decor = require(Shared.Config.Decor)
+local SpeciesConfig = require(Shared.Config.Species)
 local Result = require(script.Parent.Result)
 local PetRules = require(script.Parent.PetRules)
+local ChestRules = require(script.Parent.ChestRules)
+local EggRules = require(script.Parent.EggRules)
+local DecorRules = require(script.Parent.DecorRules)
 
 type Profile = Types.Profile
 type PendingReward = Types.PendingReward
@@ -27,6 +33,11 @@ export type RewardSpec = {
 	petXp: number?,
 	petIds: { string }?,
 	unlocks: { string }?,
+	chests: { string }?,
+	eggs: { string }?,
+	decor: { string }?,
+	titles: { string }?,
+	frames: { string }?,
 }
 
 local function addInto(dst: { [string]: number }, src: { [string]: number }?)
@@ -81,6 +92,21 @@ function RewardRules.create(
 			return Result.fail("BadRewardItem")
 		end
 	end
+	for _, c in ipairs(spec.chests or {}) do
+		if not Chests.ById[c] then
+			return Result.fail("BadRewardChest")
+		end
+	end
+	for _, sp in ipairs(spec.eggs or {}) do
+		if not SpeciesConfig.ById[sp] then
+			return Result.fail("BadRewardEgg")
+		end
+	end
+	for _, d in ipairs(spec.decor or {}) do
+		if not Decor.ById[d] then
+			return Result.fail("BadRewardDecor")
+		end
+	end
 	local reward: PendingReward = {
 		id = rewardId,
 		bundleId = spec.bundleId,
@@ -92,6 +118,11 @@ function RewardRules.create(
 		unlocks = unlocks,
 		source = source,
 		createdAt = now,
+		chests = if spec.chests and #spec.chests > 0 then table.clone(spec.chests) else nil,
+		eggs = if spec.eggs and #spec.eggs > 0 then table.clone(spec.eggs) else nil,
+		decor = if spec.decor and #spec.decor > 0 then table.clone(spec.decor) else nil,
+		titles = if spec.titles and #spec.titles > 0 then table.clone(spec.titles) else nil,
+		frames = if spec.frames and #spec.frames > 0 then table.clone(spec.frames) else nil,
 	}
 	p.rewards.pending[rewardId] = reward
 	return Result.ok({ rewardId = rewardId, reward = reward })
@@ -113,6 +144,15 @@ function RewardRules.claim(p: Profile, rewardId: string, ctx: PetRules.Ctx): Res
 	local r = p.rewards.pending[rewardId]
 	if not r then
 		return Result.fail("UnknownReward")
+	end
+	-- Comprobar espacio ANTES de aplicar nada: o se entrega todo o queda pendiente
+	local eggs = r.eggs or {}
+	local chests = r.chests or {}
+	if #eggs > 0 and not EggRules.hasRoom(p, #eggs) then
+		return Result.fail("EggStorageFull")
+	end
+	if ChestRules.count(p) + #chests > Chests.MaxStoredChests then
+		return Result.fail("ChestStorageFull")
 	end
 	for cur, v in pairs(r.currencies) do
 		p.currencies[cur] = math.min((Economy.MaxBalance :: any)[cur] or math.huge, (p.currencies[cur] or 0) + v)
@@ -136,9 +176,39 @@ function RewardRules.claim(p: Profile, rewardId: string, ctx: PetRules.Ctx): Res
 			table.insert(newUnlocks, u)
 		end
 	end
+	local chestIds = {}
+	for _, chestType in ipairs(chests) do
+		local g = ChestRules.grant(p, chestType, { kind = "Reward", ref = rewardId, at = ctx.now }, ctx.now)
+		if g.ok then
+			table.insert(chestIds, (g.data :: any).chestId)
+		end
+	end
+	local eggIds = {}
+	for _, speciesId in ipairs(eggs) do
+		local g = EggRules.grant(p, speciesId, { kind = "Rescue", ref = rewardId, at = ctx.now }, ctx.now)
+		if g.ok then
+			table.insert(eggIds, (g.data :: any).eggId)
+		end
+	end
+	for _, d in ipairs(r.decor or {}) do
+		DecorRules.grant(p, d, 1)
+	end
+	for _, t in ipairs(r.titles or {}) do
+		p.titles.owned[t] = p.titles.owned[t] or ctx.now
+	end
+	for _, f in ipairs(r.frames or {}) do
+		p.frames.owned[f] = p.frames.owned[f] or ctx.now
+	end
 	p.rewards.pending[rewardId] = nil
 	remember(p, rewardId, ctx.now)
-	return Result.ok({ rewardId = rewardId, reward = r, pets = petResults, newUnlocks = newUnlocks })
+	return Result.ok({
+		rewardId = rewardId,
+		reward = r,
+		pets = petResults,
+		newUnlocks = newUnlocks,
+		chestIds = chestIds,
+		eggIds = eggIds,
+	})
 end
 
 -- Conceder y reclamar en un paso (regalos que no requieren pantalla de reclamo).
