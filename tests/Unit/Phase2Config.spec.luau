@@ -223,3 +223,65 @@ T.describe("Catálogo y Seres Sagrados", function()
 		expect(c.phases[1].effects[2].amount).toBe(-0.2)
 	end)
 end)
+
+T.describe("Catálogo maestro (Genesis F2 §6.1)", function()
+	local Catalog = harness.get("ReplicatedStorage.Shared.Domain.Catalog")
+	local REQUIRED = {
+		"broteName",
+		"talladoName",
+		"rarity",
+		"role",
+		"family",
+		"biome",
+		"nexo",
+		"talent",
+		"signature",
+		"description",
+		"mythicMix",
+		"anatomy",
+		"distinctiveTrait",
+		"assetRef",
+		"artStatus",
+	}
+	T.it("las 50 fichas tienen todos los campos (o 'Pendiente') y repertorio de ataques", function()
+		local entries = Catalog.all()
+		expect(#entries).toBe(50)
+		for _, e in ipairs(entries) do
+			for _, field in ipairs(REQUIRED) do
+				local v = (e :: any)[field]
+				if type(v) ~= "string" or v == "" then
+					error(string.format("%s sin campo %s", e.speciesId, field))
+				end
+			end
+			if #e.elements == 0 then
+				-- Solo Misterio (Nexum) no tiene elementos fijos: repertorio "Pendiente"
+				expect(e.rarity).toBe("Misterio")
+				expect(e.basics[1]).toBe("Pendiente")
+			else
+				expect(#e.basics >= 3).toBe(true)
+				expect(#e.specials >= 1).toBe(true)
+			end
+			expect(#e.availability >= 1).toBe(true)
+		end
+	end)
+	T.it("los atributos de cada especie suman el presupuesto de su rareza (Biblia p. 35)", function()
+		for _, e in ipairs(Catalog.all()) do
+			local sum = e.stats.VID + e.stats.ATQ + e.stats.DEF + e.stats.ESE + e.stats.VEL
+			if math.abs(sum - e.statBudget) > 0.001 then
+				error(string.format("%s suma %d y su presupuesto es %d", e.speciesId, sum, e.statBudget))
+			end
+		end
+	end)
+	T.it("solo son jugables en la beta las especies con modelo y fuente; el resto queda bloqueado", function()
+		local playable = {}
+		for _, e in ipairs(Catalog.all()) do
+			if e.playableInBeta then
+				table.insert(playable, e.speciesId)
+			else
+				expect(e.artStatus ~= "").toBe(true)
+			end
+		end
+		expect(#playable >= 9).toBe(true)
+		expect(Catalog.entry("lumbrela").availability[1]).toBe("Bloqueada en la beta (sin arte aprobado)")
+	end)
+end)

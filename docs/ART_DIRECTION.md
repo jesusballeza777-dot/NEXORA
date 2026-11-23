@@ -82,3 +82,19 @@ incubadora y huevos → Papalumen y Nexum (marketing) → resto del Valle y Copa
 Rediseño de los tres iniciales: `docs/art/STARTERS_REDESIGN.md`.
 
 Paquete de producción de la Fase 2: ver `docs/art/README.md`.
+
+## 7. Fase 2: arquitectura visual en el juego
+- **Brote y Tallado:** una sola especie (`SpeciesDefinition`) y dos representaciones con paleta, escala, ojos y piezas propias (`Config/Visuals.brote/tallado` → `CreatureBuilder`). El Tallado conserva cara, color base y rasgo firma. La evolución es una ceremonia (`UI/Ceremony.evolve`: aviso → giro → destello real de la luz → revelación → cambios de atributos), no un cambio de escala.
+- **Rareza:**
+  - marco y gema en las cartas (`Rarities.frameColor`);
+  - aura de partículas por rareza: ninguna en Comunes y como mucho un emisor en el Brote (p. 120); se apaga mientras el monstruo está opacado.
+- **Elementos:** iconos de color por elemento en el Álbum, el Bestiario y el combate (`Elements.color`).
+- **Opacos:** variante desaturada hacia gris (`setOpaco`), niebla de partículas en la Linde y recuperación del color animada al vencerlos. Nunca muertos ni terroríficos.
+- **Vetas y accesorios:** el modelo de datos ya los tiene (`PetTraits.veta`, linaje). Su representación visual espera arte aprobado; no se inventan.
+- **Cartas** (`ViewportFrame`): fondo por bioma, marco y gema por rareza, iconos de elemento, pedestal y modelo 3D. El Álbum solo crea los retratos visibles.
+- **Incubadora del lote:** pedestal de copal, huevo flotante, dos anillos giratorios, haz de luz del color de la rareza y grietas de luz al 25/50/75 %.
+- **Blockouts provisionales:**
+  - Zunzi, Pabilo, Lumbro y Dientón usan arquetipos prestados;
+  - Copalia, una garza de composición (patas de raíz, alas de hoja con faroles);
+  - ninguno es diseño aprobado (`docs/art/SPECIES_MATRIX.md`).
+- **Revisión sin Studio:** `lune run tools/roblox-preview/build` genera la galería con todas las variantes (Brote, Opaco y Tallado).

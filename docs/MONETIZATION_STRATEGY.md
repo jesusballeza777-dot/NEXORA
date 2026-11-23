@@ -44,3 +44,10 @@ Cuando haya tráfico suficiente, usar **Creator Analytics** y cohortes reales pa
 Metas de la Biblia que deben **validarse**, no asumirse: 85 % llega al primer combate, 50 % vuelve al día siguiente (p. 110), 5–7 % de pagadores y 4–6 % de suscriptores (p. 97–98).
 
 **Puerta para activar ventas:** onboarding y retención D1/D7 medidos en un soft launch, economía revisada con datos reales, política de Roblox revisada y autorización explícita del equipo. Sin adquisición masiva antes de validar la retención.
+
+## 7. Arquitectura preparada en la Fase 2 (sin ventas activas)
+- **Separación de recursos en el perfil:** `currencies` (Monedas, Gemas), `items` (comida), `eggs`, `chests`, `decor`, `titles` y `frames` (cosméticos). Ninguna conversión entre ellos sale del cliente.
+- **Concesión idempotente reutilizable:** toda entrega pasa por `RewardRules`, con un id único y su procedencia. Una compra futura usará el mismo camino con un id derivado del recibo de Roblox (`purchase:<PurchaseId>`) y procesado desde `ProcessReceipt`: entrega una sola vez aunque Roblox reintente.
+- **Contenido determinista primero:** cofres de contenido fijo y visible, y huevos con la especie decidida antes de obtenerlos. Si algún día se vende algo aleatorio, la regla del cajón abierto del Gabinete (porcentajes completos antes de comprar) y `ChestRules.validateTable` ya existen.
+- **Desactivado:** no hay productos de desarrollador, pases ni suscripciones en el código, y las ranuras de incubadora por Gemas o por pase están marcadas como no disponibles en la beta (`Config/Incubation`).
+- **Antes de implementar cualquier venta:** revisar la documentación vigente de Roblox (`MarketplaceService`, productos, políticas por región mediante los servicios oficiales y no con listas fijas) y pedir autorización explícita al equipo.

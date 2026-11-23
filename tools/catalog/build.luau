@@ -10,6 +10,7 @@ local get = function(name: string)
 end
 local Species, Lore, Rarities = get("Species"), get("SpeciesLore"), get("Rarities")
 local Visuals, Encounters, Guardians = get("Visuals"), get("Encounters"), get("Guardians")
+local Catalog = VirtualGame.get("ReplicatedStorage.Shared.Domain.Catalog")
 local Chests, Quests, Codex, Decor, Incubation =
 	get("Chests"), get("Quests"), get("Codex"), get("Decor"), get("Incubation")
 
@@ -54,6 +55,27 @@ for _, id in ipairs(Species.Order) do
 			r.talladoLevel,
 			inc,
 			model
+		)
+	)
+end
+w()
+w("### Repertorio, arte y disponibilidad (catálogo maestro, `Shared/Domain/Catalog`)")
+w()
+w("| # | Especie | Básicos | Especiales | Golpe Nexo | Talento | Firma | Disponibilidad en la beta | Arte |")
+w("|---|---|---|---|---|---|---|---|---|")
+for _, e in ipairs(Catalog.all()) do
+	w(
+		string.format(
+			"| %d | %s | %s | %s | %s | %s | %s | %s | %s |",
+			e.number,
+			e.broteName,
+			esc(table.concat(e.basics, ", ")),
+			esc(table.concat(e.specials, ", ")),
+			esc(e.nexo),
+			esc(e.talent),
+			esc(e.signature),
+			esc(table.concat(e.availability, "; ")),
+			esc(e.artStatus)
 		)
 	)
 end
