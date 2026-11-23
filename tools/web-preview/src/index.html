@@ -184,6 +184,7 @@ button { font-family: var(--font-title); color: var(--cream); cursor: pointer; b
 #loading { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: #1a110c; font-family: var(--font-title); color: var(--copal-glow); font-size: 20px; letter-spacing: 2px; }
 #loading .err { color: var(--cream); font-family: var(--font-body); font-size: 15px; max-width: 420px; text-align: center; margin-top: 10px; }
 
+/*__NEXORA_CSS2__*/
 @keyframes pop { from { transform: scale(.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 #prompt { animation-name: none; }
 @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
@@ -214,7 +215,8 @@ button { font-family: var(--font-title); color: var(--cream); cursor: pointer; b
   <button class="dock-btn" id="btn-pet" aria-label="Mi monstruo">🐾<span>Monstruo</span></button>
   <button class="dock-btn" id="btn-sanctuary" aria-label="Santuario">🏡<span>Santuario</span></button>
   <button class="dock-btn" id="btn-album" aria-label="Álbum">📖<span>Álbum</span></button>
-  <button class="dock-btn" id="btn-nexo" aria-label="Menú del árbol">🌳<span>Nexo</span></button>
+  <button class="dock-btn hidden" id="btn-adventure" aria-label="Aventura: mapa del Acto I">🗺️<span>Aventura</span></button>
+  <button class="dock-btn" id="btn-nexo" aria-label="Menú del Gran Nexo">🌳<span>Menú</span></button>
 </div>
 <div id="companion" class="panel hidden"></div>
 <div id="prompt" class="panel hidden"><kbd>E</kbd><div><div class="obj"></div><div class="act"></div></div></div>
@@ -229,6 +231,7 @@ button { font-family: var(--font-title); color: var(--cream); cursor: pointer; b
 <script>/*__NEXORA_CONFIG__*/</script>
 <script>/*__NEXORA_NORMALIZE__*/</script>
 <script>/*__NEXORA_ENGINE__*/</script>
+<script>/*__NEXORA_DOMAIN__*/</script>
 <script type="module">/*__NEXORA_GAME__*/</script>
 </body>
 </html>

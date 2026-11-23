@@ -1,6 +1,9 @@
-// NEXORA · Vista previa web jugable del vertical slice (Valle Copal).
-// Reglas: mismas cifras y motor de combate que el proyecto Roblox (config exportada
-// desde Luau + engine.js con paridad comprobada). Arte: BLOCKOUTS provisionales.
+// NEXORA · Vista previa web jugable (Valle Copal · Fase 2 beta).
+// Reglas: mismas cifras, motor de combate y reglas de perfil que el proyecto Roblox
+// (config exportada desde Luau + engine.js y domain.js con paridad comprobada).
+// Arte: BLOCKOUTS provisionales. Archivos de la página (se concatenan en este orden):
+//   game.js (mundo, criaturas, perfil, HUD) · battle.js (combate) · screens.js
+//   (pantallas de la Fase 2) · boot.js (arranque y ganchos de prueba).
 import * as THREE from "three";
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
@@ -13,6 +16,8 @@ const CFG = NexoraNormalize.normalizeConfig(window.NEXORA_CONFIG);
 const WORLD_ENCOUNTERS = CFG.Encounters.Order.filter((id) => CFG.Encounters.ById[id].worldMarker);
 const ENG = NexoraEngine.createEngine(CFG);
 const { Stats, Leveling, BattleEngine: BE, BattleAI: AI, ElementChart } = ENG;
+const DOM = NexoraDomain.createDomain(CFG, ENG);
+const { ProfileSchema, PetRules, SanctuaryRules, CollectionRules, EggRules, ChestRules, QuestRules, EncounterRules, DecorRules } = DOM;
 const W = CFG.World;
 
 // =====================================================================
@@ -21,204 +26,109 @@ const W = CFG.World;
 const $ = (s) => document.querySelector(s);
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const lerp = (a, b, t) => a + (b - a) * t;
-const now = () => Date.now() / 1000;
 const v3 = (a) => new THREE.Vector3(a[0], a[1], a[2]);
 const col = (rgb) => new THREE.Color(rgb[0] / 255, rgb[1] / 255, rgb[2] / 255);
 const css = (rgb) => `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+const cssA = (rgb, a) => `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${a})`;
 const fmt = (n) => Math.floor(n).toLocaleString("es-MX");
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// Orienta un objeto hacia (x, z) solo con giro horizontal (lookAt puede dar volteretas de 180° en X/Z)
+const faceTo = (o, x, z) => o.rotation.set(0, Math.atan2(x - o.position.x, z - o.position.z), 0);
+// Velocidad de las animaciones (1 = normal; los ganchos de prueba pueden acelerarlas)
+let ANIM = 1;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms / ANIM));
 const isTouch = matchMedia("(pointer: coarse)").matches;
 const species = (id) => CFG.Species.ById[id];
 const ability = (id) => CFG.Abilities.ById[id];
-const ELEMENT_ICON = { Agua: "💧", Fuego: "🔥", Aire: "🌀", Tierra: "⛰️", Metal: "⚙️", Flora: "🌿", Rayo: "⚡", Artificio: "🔩", Luz: "✨", Sombra: "🌙", Mente: "🌀", Astral: "⭐" };
+const guardian = (id) => CFG.Guardians.ById[id];
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const ELEMENT_ICON = { Agua: "💧", Fuego: "🔥", Aire: "🌬️", Tierra: "⛰️", Metal: "⚙️", Flora: "🌿", Rayo: "⚡", Artificio: "🔩", Luz: "✨", Sombra: "🌙", Mente: "🌀", Astral: "⭐" };
 const FOOD_ICON = { RacionBasica: "🌽", RacionBioma: "🥗", Festin: "🍲", RacionDorada: "🍯" };
 const STATUS_TXT = { Burn: "Quemadura", Paralysis: "Parálisis", Stun: "Aturdido", Sleep: "Dormido", Confuse: "Confusión" };
 const STAT_TXT = { ATQ: "ATQ", DEF: "DEF", VEL: "VEL", ESE: "ESE", Precision: "precisión", Evasion: "evasión" };
 
 // =====================================================================
-// Perfil (localStorage simula el DataStore: cierra la pestaña y vuelve)
+// Perfil: misma forma que el perfil de Roblox (ProfileSchema v2). localStorage hace
+// de DataStore (cierra la pestaña y vuelve). El "servidor" es domain.js: la interfaz
+// solo llama a Actions con intenciones; nunca escribe cantidades por su cuenta.
 // =====================================================================
-const SAVE_KEY = "nexora.preview.profile.v1";
+const SAVE_KEY = "nexora.preview.profile.v2";
+const OLD_SAVE_KEY = "nexora.preview.profile.v1";
 const DEV_KEY = "nexora.preview.dev.v1";
-function newProfile() {
-  return {
-    v: 1, createdAt: now(), coins: 0, gems: 0, items: {}, pets: {}, serial: 1, companion: null,
-    lotUnlocked: false, habitat: { slots: [false, false, false, false], last: now(), accrued: 0, bonus: 0 },
-    cleared: {}, repeat: { day: 0, count: 0 }, step: "Intro", completed: false,
-    firsts: {}, unlocks: {}, pending: {}, ledger: {}, logins: 0,
-  };
-}
-function loadProfile() {
-  try { const raw = localStorage.getItem(SAVE_KEY); if (raw) return JSON.parse(raw); } catch (e) { /* almacenamiento no disponible */ }
-  return null;
-}
-let P = loadProfile() || newProfile();
-let saveTimer = 0;
-function save() { clearTimeout(saveTimer); saveTimer = setTimeout(() => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(P)); } catch (e) { /* sin persistencia */ } }, 150); }
-let DEV = { xp: true };
+const WEB_USER_ID = 1;
+let DEV = { xp: true, clockOffset: 0 };
 try { DEV = Object.assign(DEV, JSON.parse(localStorage.getItem(DEV_KEY) || "{}")); } catch (e) { /* usar valores por defecto */ }
 const saveDev = () => { try { localStorage.setItem(DEV_KEY, JSON.stringify(DEV)); } catch (e) { /* sin persistencia */ } };
+// Reloj del "servidor": segundos enteros (como os.time en Roblox). La prueba puede adelantarlo.
+const serverNow = () => Math.floor(Date.now() / 1000) + (DEV.clockOffset || 0);
 const xpMult = () => (DEV.xp ? 10 : 1);
+const ctx = () => ({ now: serverNow(), xpMultiplier: xpMult(), skipCooldowns: !!DEV.xp });
+let migratedFrom = null;
+function loadProfile() {
+  const t = serverNow();
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (raw) return ProfileSchema.migrate(JSON.parse(raw), t);
+    const old = localStorage.getItem(OLD_SAVE_KEY);
+    if (old) { migratedFrom = 1; return ProfileSchema.migrate(ProfileSchema.fromWebV1(JSON.parse(old), t), t); }
+  } catch (e) { console.warn("Perfil guardado ilegible; se empieza de nuevo", e); }
+  return ProfileSchema.new(WEB_USER_ID, t);
+}
+let P = loadProfile();
+let saveTimer = 0;
+function saveNow() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(P)); } catch (e) { /* sin persistencia */ } }
+function save() { clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 150); }
+addEventListener("pagehide", saveNow);
 
-// =====================================================================
-// Reglas (espejo de Server/Domain; el servidor de Roblox es la autoridad real)
-// =====================================================================
+// Atajos de lectura del perfil
+const HOME_ID = "Hogar_H1";
+const home = () => P.lots.Hogar.habitats[HOME_ID];
+const lotUnlocked = () => !!P.lots.Hogar.unlocked;
 const STEPS = CFG.Onboarding.Steps.map((s) => s.id);
 const stepInfo = (id) => CFG.Onboarding.Steps.find((s) => s.id === id);
-const starterPet = () => Object.values(P.pets).find((p) => p.source === "Starter");
-const companion = () => (P.companion ? P.pets[P.companion] : null);
-const anyPlaced = () => P.habitat.slots.some(Boolean);
-const DONE = {
-  Intro: () => !!P.firsts.intro_finished,
-  ChooseEgg: () => !!starterPet(),
-  Hatch: () => !!P.firsts.hatch_completed,
-  MeetHome: () => P.lotUnlocked,
-  PlaceInHabitat: anyPlaced,
-  FirstFeed: () => !!P.firsts.first_feed,
-  FirstBond: () => !!P.firsts.first_bond_gain,
-  FirstBattle: () => !!P.cleared.valle_r1_e1,
-  ClaimReward: () => !!P.firsts.first_reward_claimed,
-};
-function refreshOnboarding() {
-  if (P.completed) return;
-  let i = STEPS.indexOf(P.step);
-  while (i < STEPS.length) {
-    const id = STEPS[i];
-    if (id === "Done") { P.completed = true; P.firsts.tutorial_completed ??= now(); toast("🌳", "¡Tutorial completado! El valle es tuyo."); break; }
-    if (DONE[id] && DONE[id]()) { i++; P.step = STEPS[i]; } else break;
-  }
-}
-function first(name) { if (!P.firsts[name]) P.firsts[name] = now(); }
-
+const step = () => P.onboarding.step;
+const tutorialDone = () => !!P.onboarding.completed;
+const starterPet = () => PetRules.starterPet(P);
+const companion = () => (P.companionPetId ? P.pets[P.companionPetId] : null);
+const pendingRewards = () => Object.values(P.rewards.pending).sort((a, b) => (a.id < b.id ? -1 : 1));
+const coins = () => P.currencies.Monedas ?? 0;
 function petName(pet) { const sp = species(pet.speciesId); return pet.nickname || (pet.form === "Tallado" ? sp.talladoName : sp.broteName); }
-function addXp(pet, amount) {
-  const r = Leveling.addXp(pet.level, pet.xp, Math.floor(amount * xpMult()));
-  const gained = r.level - pet.level;
-  pet.level = r.level; pet.xp = r.xp;
-  if (gained > 0) { toast("⬆️", `${petName(pet)} sube a nivel ${pet.level}`); petFx(pet.id, "level"); }
+const speciesName = (id, form = "Brote") => { const sp = species(id); if (sp) return form === "Tallado" ? sp.talladoName : sp.broteName; const g = guardian(id); return g ? g.shortName : id; };
+
+// Mensajes de los códigos de error estables del servidor
+const ERR = {
+  NotReady: "Aún no está listo", SlotLocked: "Esa ranura está cerrada", SlotBusy: "Esa ranura está ocupada", SlotEmpty: "No hay huevo en esa ranura",
+  InventoryFull: "Tu Vivero está lleno: amplíalo o coloca monstruos en el hábitat", EggStorageFull: "No caben más huevos guardados",
+  ChestStorageFull: "La Repisa de Cofres está llena", ChestNotFound: "Ese cofre ya no está", QuestNotComplete: "El encargo aún no está completo",
+  AlreadyClaimed: "Ya lo reclamaste", NotEnoughMonedas: "Te faltan Monedas", NotEnoughGemas: "Te faltan Gemas", NoFood: "No tienes esa comida",
+  Cooldown: "Tu monstruo descansa un momento", MaxLevel: "Ya está al nivel máximo", EncounterLocked: "Esa etapa aún está cerrada",
+  TeamTooCostly: "El equipo cuesta más de 12 para el jefe", FinishTutorialFirst: "Termina primero el tutorial", NoCompanion: "Necesitas un monstruo",
+  DecorNotOwned: "No tienes más copias de ese objeto", LotLocked: "Abre primero tu Lote Hogar", NothingPlaced: "No tienes objetos de esa plantilla o no hay espacios libres",
+  TooManyPets: "La vitrina admite 3 monstruos", InventoryAtMax: "El Vivero ya está al máximo", PreviousSlotLocked: "Abre antes la ranura anterior",
+  NotPurchasable: "Esa ranura se gana jugando", NotAvailable: "No disponible en la beta", LevelTooLow: "Le falta nivel", BondTooLow: "Le falta Vínculo",
+  AlreadyTallado: "Ya está tallado", StackFull: "No caben más", NotForSale: "No está a la venta", BadOption: "Esa opción no existe",
+  ResultAlreadyApplied: "Ese combate ya se registró", SlotOccupied: "Lugar ocupado", AlreadyPlaced: "Ya está en el hábitat", TitleNotOwned: "Aún no tienes ese título",
+};
+const errText = (code) => ERR[code] || code || "No se pudo";
+
+// Ejecuta un caso de uso del "servidor" y reacciona a lo que devuelve (subidas de nivel,
+// encargos completados, cartas nuevas del Códice, fin del tutorial). Guarda el perfil.
+function run(name, ...args) { return runWith((c) => DOM.Actions[name](P, ...args, c)); }
+function runWith(fn) {
+  const levels = {};
+  for (const pet of Object.values(P.pets)) levels[pet.id] = pet.level;
+  const r = fn(ctx());
+  for (const pet of Object.values(P.pets)) {
+    if (levels[pet.id] !== undefined && pet.level > levels[pet.id]) { toast("⬆️", `${esc(petName(pet))} sube a nivel ${pet.level}`); petFx(pet.id, "level"); }
+  }
+  const analytics = (r.data && r.data.analytics) || [];
+  for (const a of analytics) {
+    if (a.name === "quest_completed") { const q = QuestRules.def(a.fields.quest); toast("📋", `Encargo listo: «${esc(q ? q.title : a.fields.quest)}». Reclámalo en el Tablón.`); }
+    else if (a.name === "tutorial_completed") toast("🌳", "¡Tutorial completado! El valle es tuyo.");
+    else if (a.name === "codex_entry_unlocked") { const c = CFG.Codex.ById[a.fields.entry]; if (c) toast(c.symbol, `Nueva carta del Códice: ${esc(c.title)}`); }
+  }
+  save();
   return r;
 }
-function addBond(pet, n) { const before = pet.bond; pet.bond = Math.min(CFG.Progression.Bond.Max, pet.bond + n); return pet.bond - before; }
-
-function habitatRate() {
-  let total = 0;
-  for (const id of P.habitat.slots) {
-    if (!id || !P.pets[id]) continue;
-    const pet = P.pets[id], sp = species(pet.speciesId);
-    let r = CFG.Rarities.ById[sp.rarity].coinsPerHour;
-    if (pet.form === "Brote") r *= CFG.Economy.Habitat.BroteProductionFactor;
-    if (sp.biome === "ValleCopal") r *= 1 + CFG.Sanctuary.NativeBonus.coins;
-    total += r;
-  }
-  return total;
-}
-function settleHabitat() {
-  const h = P.habitat, t = now();
-  const elapsed = clamp(t - h.last, 0, CFG.Economy.Habitat.OfflineCapSeconds);
-  const rate = habitatRate();
-  const coins = Math.floor((rate * elapsed) / 3600);
-  h.accrued = Math.min(h.accrued + coins, Math.max((rate * CFG.Economy.Habitat.OfflineCapSeconds) / 3600, h.accrued));
-  const xp = Math.floor((CFG.Economy.Habitat.PassiveXpPerMinute * elapsed) / 60);
-  if (xp > 0) for (const id of h.slots) if (id && P.pets[id]) addXp(P.pets[id], xp);
-  h.last = t;
-}
-function pendingCoins() {
-  const h = P.habitat;
-  const elapsed = clamp(now() - h.last, 0, CFG.Economy.Habitat.OfflineCapSeconds);
-  return h.accrued + Math.floor((habitatRate() * elapsed) / 3600) + h.bonus;
-}
-
-const Actions = {
-  finishIntro(skipped) { if (!P.firsts.intro_finished) { first("intro_finished"); P.introSkipped = skipped; } refreshOnboarding(); save(); },
-  chooseStarter(eggId) {
-    if (P.step !== "ChooseEgg" || starterPet()) return { ok: false, err: "NotNow" };
-    const egg = CFG.Onboarding.StarterEggs.find((e) => e.eggId === eggId);
-    const id = `U1-${P.serial++}`;
-    P.pets[id] = { id, speciesId: egg.speciesId, form: "Brote", level: 1, xp: 0, bond: 0, nickname: null, source: "Starter", acquiredAt: now(), lastPlayedAt: 0, wins: 0 };
-    P.companion = id; first("starter_egg_selected"); refreshOnboarding(); save();
-    return { ok: true, petId: id };
-  },
-  ackHatch() { first("hatch_completed"); first("pet_follow_started"); refreshOnboarding(); save(); },
-  visitHome() {
-    if (!starterPet() || P.lotUnlocked) return false;
-    P.lotUnlocked = true; P.habitat.last = now(); P.habitat.bonus = 50;
-    grant("onboarding:gift", CFG.Rewards.ById.OnboardingGift);
-    first("habitat_opened"); refreshOnboarding(); save();
-    return true;
-  },
-  place(petId, slot) {
-    if (P.habitat.slots.includes(petId)) return { ok: false, err: "Ya está en el hábitat" };
-    if (P.habitat.slots[slot]) return { ok: false, err: "Lugar ocupado" };
-    settleHabitat(); P.habitat.slots[slot] = petId; refreshOnboarding(); save(); return { ok: true };
-  },
-  remove(slot) { if (!P.habitat.slots[slot]) return { ok: false }; settleHabitat(); P.habitat.slots[slot] = false; refreshOnboarding(); save(); return { ok: true }; },
-  collect() {
-    settleHabitat();
-    const coins = P.habitat.accrued + P.habitat.bonus;
-    P.habitat.accrued = 0; P.habitat.bonus = 0; P.coins += coins; save();
-    return coins;
-  },
-  feed(petId, foodId) {
-    const pet = P.pets[petId], food = CFG.Economy.Foods[foodId];
-    if (!pet || !food || (P.items[foodId] || 0) < 1) return { ok: false, err: "No tienes esa comida" };
-    P.items[foodId] -= 1;
-    addXp(pet, food.xp);
-    const bond = addBond(pet, food.bond);
-    first("first_feed"); if (bond > 0) first("first_bond_gain");
-    refreshOnboarding(); save();
-    return { ok: true, xp: food.xp * xpMult(), bond };
-  },
-  play(petId) {
-    const pet = P.pets[petId];
-    const wait = CFG.Progression.Bond.PlayCooldownSeconds - (now() - pet.lastPlayedAt);
-    if (wait > 0 && !DEV.xp) return { ok: false, err: `Descansa ${Math.ceil(wait)} s` };
-    pet.lastPlayedAt = now();
-    const g = addBond(pet, CFG.Progression.Bond.PlayGain);
-    if (g > 0) first("first_bond_gain");
-    refreshOnboarding(); save();
-    return { ok: true, bond: g };
-  },
-  evolve(petId) {
-    const pet = P.pets[petId];
-    const [ok, why] = Leveling.canEvolve(pet);
-    if (!ok) return { ok: false, err: why };
-    pet.form = "Tallado"; pet.evolvedAt = now(); save();
-    return { ok: true };
-  },
-  buyFood(foodId, qty) {
-    const food = CFG.Economy.Foods[foodId];
-    if (!food.sold) return { ok: false, err: "No está a la venta" };
-    const cost = food.price.Monedas * qty;
-    if (P.coins < cost) return { ok: false, err: "Te faltan Monedas" };
-    P.coins -= cost; P.items[foodId] = (P.items[foodId] || 0) + qty; save();
-    return { ok: true };
-  },
-  claim(rewardId) {
-    const r = P.pending[rewardId];
-    if (!r || P.ledger[rewardId]) return null;
-    P.coins += r.currencies.Monedas || 0; P.gems += r.currencies.Gemas || 0;
-    for (const [k, n] of Object.entries(r.items)) P.items[k] = (P.items[k] || 0) + n;
-    for (const id of r.petIds) if (P.pets[id] && r.petXp > 0) addXp(P.pets[id], r.petXp);
-    for (const u of r.unlocks) P.unlocks[u] = now();
-    delete P.pending[rewardId]; P.ledger[rewardId] = now();
-    first("first_reward_claimed"); refreshOnboarding(); save();
-    return r;
-  },
-};
-function makeReward(id, spec, title) {
-  const cur = {}, items = {}, unlocks = [];
-  const add = (dst, src) => { for (const [k, n] of Object.entries(src || {})) dst[k] = (dst[k] || 0) + n; };
-  let t = title;
-  if (spec.bundleId) { const b = CFG.Rewards.ById[spec.bundleId]; add(cur, b.currencies); add(items, b.items); unlocks.push(...b.unlocks); t = t || b.title; }
-  add(cur, spec.currencies); add(items, spec.items);
-  return { id, title: t || "Recompensa", currencies: cur, items, unlocks, petXp: spec.petXp || 0, petIds: spec.petIds || [] };
-}
-function grant(id, bundle) {
-  if (P.ledger[id]) return;
-  P.pending[id] = makeReward(id, { bundleId: bundle.id });
-  Actions.claim(id);
-}
-
 // =====================================================================
 // Escena · hora dorada, postproceso con resplandor y calidad adaptativa
 // =====================================================================
@@ -548,7 +458,8 @@ function updateLabels() {
     const p = l.obj ? tmpV.copy(l.obj.getWorldPosition(new THREE.Vector3())).add(V(0, l.offset, 0)) : tmpV.copy(l.pos);
     const dist = p.distanceTo(camera.position);
     p.project(camera);
-    const show = l.visible() && p.z < 1 && dist < l.max && Math.abs(p.x) < 1.2 && Math.abs(p.y) < 1.2;
+    // Sin etiquetas del mundo bajo la franja del HUD (monedas y marca)
+    const show = l.visible() && p.z < 1 && dist < l.max && Math.abs(p.x) < 1.2 && Math.abs(p.y) < 1.2 && (-p.y * 0.5 + 0.5) * innerHeight > 70;
     l.el.style.display = show ? "" : "none";
     if (show) { l.el.style.left = `${(p.x * 0.5 + 0.5) * innerWidth}px`; l.el.style.top = `${(-p.y * 0.5 + 0.5) * innerHeight}px`; l.el.style.opacity = String(clamp(1.4 - dist / l.max, 0.25, 1)); }
   }
@@ -730,6 +641,42 @@ for (const egg of CFG.Onboarding.StarterEggs) {
 }
 
 // ---------- Estaciones: casitas de adobe con toldo de papel picado ----------
+const STATION_SUB = { Despensa: "Comida a precio fijo", Criadero: "Huevos e incubadora", Tablon: "Encargos del día", RepisaCofres: "Tus cofres", Mirador: "Mapa del Acto I" };
+// Incubadora animada (huevo flotante, dos anillos, haz de luz y grietas al 25/50/75 %)
+const incubatorProps = [];
+function buildIncubatorProp(parent, pos, scale = 1) {
+  const g = new THREE.Group(); g.position.copy(pos); g.scale.setScalar(scale); parent.add(g);
+  mesh(GEO.cyl, mat(PAL.stone, { map: grecaTex("#e8a848", "#cdbb9a") }), V(0, 0.7, 0), V(2.8, 1.4, 2.8), null, g);
+  mesh(GEO.cyl, mat(PAL.copal, { physical: true, rough: 0.25, clearcoat: 1, emissive: 0x6a3200, ei: 0.5 }), V(0, 1.5, 0), V(2.3, 0.25, 2.3), null, g);
+  const beam = mesh(new THREE.CylinderGeometry(1.1, 1.9, 9, 24, 1, true), new THREE.MeshBasicMaterial({ color: 0xffd27a, transparent: true, opacity: 0.18, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }), V(0, 6, 0), null, null, g, false);
+  const eggG = new THREE.Group(); eggG.position.y = 5; g.add(eggG);
+  const shellMat = mat(0xe9a648, { physical: true, rough: 0.3, clearcoat: 1, emissive: 0x5a2600, ei: 0.35, unique: true });
+  const shell = mesh(GEO.sphere, shellMat, null, V(1.1, 1.45, 1.1), null, eggG, false);
+  const crackMat = new THREE.MeshBasicMaterial({ color: 0xfff1b8 });
+  const cracks = [0, 1, 2].map((k) => { const c = new THREE.Group(); eggG.add(c); for (let j = 0; j < 3; j++) { const a = k * 2.1 + j * 0.35; const b = mesh(GEO.box, crackMat, V(Math.cos(a) * 1.08, 0.5 - j * 0.32 - k * 0.15, Math.sin(a) * 1.08), V(0.07, 0.42, 0.07), [0, -a, (j % 2 ? 0.6 : -0.6)], c, false); b.lookAt(eggG.position.clone().add(V(Math.cos(a) * 3, 0, Math.sin(a) * 3))); } c.visible = false; return c; });
+  const rings = [0, 1].map((k) => mesh(GEO.torus, mat(PAL.glow, { emissive: 0xffa640, ei: 2 }), V(0, 5, 0), V(2.1 + k * 0.5, 2.1 + k * 0.5, 2.1 + k * 0.5), [Math.PI / 2 + (k ? 0.5 : -0.3), 0, 0], g, false));
+  const light = new THREE.PointLight(0xffc068, 0, 16, 1.8); light.position.y = 5; g.add(light);
+  const prop = { g, eggG, shell, shellMat, cracks, rings, beam, light, egg: null };
+  incubatorProps.push(prop);
+  return prop;
+}
+function stationProps(id, g) {
+  const front = (x, y, z) => V(x, y, z + 6.5);
+  if (id === "Criadero") buildIncubatorProp(g, front(0, 0, 0), 0.8);
+  else if (id === "Tablon") {
+    [-2.6, 2.6].forEach((x) => mesh(GEO.cyl, mat(PAL.wood), front(x, 2.6, 0), V(0.25, 5.2, 0.25), null, g));
+    mesh(GEO.rbox, mat(0x8c6442), front(0, 3.6, 0), V(6, 3.4, 0.35), null, g);
+    [[-1.6, 4.2, 0xfff4de], [0.2, 3.4, 0xf6d9a6], [1.8, 4.0, 0xfff4de]].forEach(([x, y, c]) => mesh(GEO.box, mat(c), front(x, y, 0.22), V(1.3, 1.6, 0.05), [0, 0, (x % 2) * 0.1], g, false));
+  } else if (id === "RepisaCofres") {
+    mesh(GEO.rbox, mat(PAL.wood), front(0, 1.2, 0), V(7, 0.4, 2.2), null, g);
+    mesh(GEO.rbox, mat(PAL.wood), front(0, 3.4, 0), V(7, 0.4, 2.2), null, g);
+    [-3.2, 3.2].forEach((x) => mesh(GEO.box, mat(PAL.wood), front(x, 2.2, 0), V(0.4, 4.4, 2.2), null, g));
+    ["Madera", "Plata", "Oro"].forEach((c, k) => { const d = CFG.Chests.ById[c]; mesh(GEO.rbox, mat(col(d.color).getHex(), { metal: k ? 0.5 : 0, rough: 0.5 }), front(-2 + k * 2, 2.0, 0), V(1.5, 1.1, 1.1), null, g); mesh(GEO.box, mat(col(d.glow).getHex(), { emissive: col(d.glow).getHex(), ei: 0.8 }), front(-2 + k * 2, 2.05, 0.56), V(0.3, 0.3, 0.05), null, g, false); });
+  } else if (id === "Mirador") {
+    mesh(GEO.cyl, mat(PAL.stone, { map: grecaTex("#a88b62", "#d8c8a6") }), front(0, 1.1, 0), V(3, 2.2, 3), null, g);
+    CFG.Encounters.Regions.forEach((r, k) => mesh(new THREE.CircleGeometry(2.7, 24, (k / 3) * Math.PI * 2, Math.PI * 2 / 3), mat(col(r.palette.accent).getHex(), { emissive: col(r.palette.accent).getHex(), ei: 0.35 }), front(0, 2.25, 0), null, [-Math.PI / 2, 0, 0], g, false));
+  }
+}
 for (const [id, st] of Object.entries(W.Stations)) {
   const p = v3(st.position);
   const g = new THREE.Group(); g.position.copy(p); g.rotation.y = Math.atan2(treeBase.x - p.x, treeBase.z - p.z); scene.add(g);
@@ -744,7 +691,8 @@ for (const [id, st] of Object.entries(W.Stations)) {
   for (let k = 0; k < 6; k++) mesh(GEO.box, mat(k % 2 ? 0xfff2dc : color), V(-3.75 + k * 1.5, 6.9, 2.3), V(1.5, 0.12, 2.4), [0.35, 0, 0], g);
   mesh(GEO.rbox, mat(0x3a271d), V(0, 2.6, 2.28), V(3.2, 4, 0.2), null, g);
   if (st.implemented) { const l = mesh(GEO.sphere, mat(PAL.glow, { emissive: 0xffa640, ei: 2.5 }), V(3.2, 5.4, 3.3), V(0.6, 0.8, 0.6), null, g, false); l.add(new THREE.PointLight(0xffb653, 25, 14, 1.8)); }
-  addLabel(p.clone().add(V(0, 13.5, 0)), `${st.label}${st.implemented ? "" : "<small>Próximamente</small>"}`, { max: 120 });
+  if (st.implemented) stationProps(id, g);
+  addLabel(p.clone().add(V(0, 13.5, 0)), `${st.label}<small>${st.implemented ? STATION_SUB[id] || "" : "Próximamente"}</small>`, { max: 120 });
 }
 // Mirador: arcos de piedra con greca y vitral del color de cada bioma, sellados
 for (const gate of W.BiomeGates) {
@@ -783,14 +731,12 @@ W.Lots.positions.forEach((pos, i) => {
   mesh(new THREE.CylinderGeometry(2.22, 2.22, 0.7, 32, 1, true), mat(0xffffff, { map: grecaTex("#fff4de", "#a8502e"), side: THREE.DoubleSide }), collectorPos.clone().setY(3.2), null, null, scene, false);
   collectorCoinsLabel = addLabel(collectorPos.clone().add(V(0, 7.5, 0)), "", { max: 70 });
   const inc = lotC.clone().add(v3(W.Lots.incubatorOffset));
-  mesh(GEO.cyl, mat(PAL.stone, { map: grecaTex("#e8a848", "#cdbb9a") }), V(inc.x, 0.8, inc.z), V(2.8, 1.4, 2.8));
-  const ring = mesh(GEO.torus, mat(PAL.glow, { emissive: 0xffa640, ei: 2 }), V(inc.x, 4, inc.z), V(2.6, 2.6, 2.6), [Math.PI / 2, 0, 0], scene, false);
-  spinners.push(ring);
-  addLabel(V(inc.x, 7.5, inc.z), "Incubadora<small>Próximamente</small>", { max: 60 });
+  buildIncubatorProp(scene, V(inc.x, 0, inc.z), 1);
+  addLabel(V(inc.x, 10, inc.z), "Incubadora<small>Criadero del lote</small>", { max: 60 });
   const vit = lotC.clone().add(v3(W.Lots.vitrinaOffset));
   [-1, 0, 1].forEach((k) => { mesh(GEO.rbox, mat(PAL.wood), V(vit.x + k * 5, 1.1, vit.z), V(4.2, 1.6, 3.2)); mesh(GEO.sphere, new THREE.MeshPhysicalMaterial({ color: 0xdff0ff, transparent: true, opacity: 0.25, roughness: 0.05, clearcoat: 1 }), V(vit.x + k * 5, 2.2, vit.z), V(1.5, 1.7, 1.4), null, scene, false); });
-  addLabel(V(vit.x, 5.2, vit.z), "Vitrina<small>3 Tallados · próximamente</small>", { max: 60 });
-  addLabel(lotC.clone().add(V(0, 9, -W.Lots.size[1] / 2)), "Tu Lote Hogar", { max: 200, visible: () => P.lotUnlocked });
+  addLabel(V(vit.x, 5.2, vit.z), "Vitrina<small>Tu exhibición</small>", { max: 60 });
+  addLabel(lotC.clone().add(V(0, 9, -W.Lots.size[1] / 2)), "Tu Lote Hogar", { max: 200, visible: () => lotUnlocked() });
 });
 // Puentes de tablones con barandal
 for (const b of W.Bridges) {
@@ -863,7 +809,6 @@ function worldTick(t, dt) {
   for (const f of flags) f.rotation.x = Math.sin(t * 2.2 + f.userData.flutter) * 0.18;
   for (const c of clouds) { c.g.position.x += c.speed * dt; if (c.g.position.x > 560) c.g.position.x = -560; }
 }
-
 // =====================================================================
 // Criaturas (BLOCKOUTS provisionales por arquetipo; ver docs/art/STARTERS_REDESIGN.md)
 // Estilo: volúmenes suaves, ojos brillantes que parpadean, rubor en los Brotes,
@@ -1132,6 +1077,43 @@ function buildCreature(speciesId, form, opaco = false) {
       legs(6, 0.5, 0.6, [0.4, 0, -0.4], 0.05, 0.35, accM);
       break;
     }
+    case "Heron": {
+      // Ser Sagrado (Copalia): garza alta; patas de raíz que se abren en el suelo, cuello
+      // en S, alas de hoja con faroles colgantes (proporciones de CreatureBuilder.luau).
+      const barkM = M([96, 70, 52], { rough: 0.9 });
+      for (const sx of [-1, 1]) {
+        outline(mesh(GEO.cyl, barkM, V(sx * 0.45, 1.3, -0.1), V(0.16, 2.6, 0.16), null, body));
+        for (let k = 0; k < 3; k++) {
+          const ang = sx * (0.5 + k * 0.6), d = V(Math.sin(ang), -0.18, Math.cos(ang)).normalize();
+          const r = mesh(new THREE.CylinderGeometry(0.05, 0.12, 1.2, 8), barkM, V(sx * 0.45 + d.x * 0.5, 0.16, -0.1 + d.z * 0.5), null, null, body);
+          r.quaternion.setFromUnitVectors(V(0, 1, 0), d);
+        }
+      }
+      S(body, bodyM, V(0, 3.1, -0.2), V(0.8, 0.7, 1.2));
+      S(body, bellyM, V(0, 2.85, 0.05), V(0.6, 0.45, 0.8), null, false);
+      const neck = new THREE.CatmullRomCurve3([V(0, 3.4, 0.6), V(0, 4.3, 1.0), V(0, 4.9, 0.8), V(0, 5.5, 1.1)]);
+      outline(mesh(taperTube(neck, 24, 0.3, 0.22), bodyM, null, null, null, body));
+      const head = new THREE.Group(); head.position.set(0, 5.75, 1.3); body.add(head);
+      S(head, bellyM, V(0, 0, 0), V(0.35, 0.3, 0.42));
+      mesh(GEO.cone, M([226, 182, 80], { rough: 0.4 }), V(0, -0.06, 0.95), V(0.1, 1.2, 0.08), [Math.PI / 2 + 0.14, 0, 0], head);
+      eyes(head, V(0, 0.1, 0.3), 0.24, 0.1);
+      for (let k = -1; k <= 1; k++) S(head, accM, V(k * 0.12, 0.45, -0.25), V(0.11, 0.45, 0.2), [-0.6, 0, k * 0.3]);
+      const lanternM = M(pal.emissive, { emissive: col(pal.emissive), ei: 1.6, noRim: true });
+      parts.lanterns = [lanternM];
+      for (const sx of [-1, 1]) {
+        const wing = new THREE.Group(); wing.position.set(sx * 0.7, 3.35, -0.25); body.add(wing);
+        for (let k = 0; k < 3; k++) S(wing, accM, V(sx * (0.15 + k * 0.28), k * 0.15, -0.05 - k * 0.2), V(0.09, 0.5 + k * 0.08, 1.0 - k * 0.15), [0.15, 0, sx * (0.45 + k * 0.2)]);
+        for (let k = 0; k < 2; k++) {
+          mesh(GEO.cyl, darkM, V(sx * (0.5 + k * 0.35), -0.45, -0.15 - k * 0.3), V(0.02, 0.5, 0.02), null, wing, false);
+          S(wing, lanternM, V(sx * (0.5 + k * 0.35), -0.8 - k * 0.15, -0.15 - k * 0.3), V(0.16, 0.21, 0.16), null, false);
+        }
+        parts.gills.push(wing);
+      }
+      const tailG = new THREE.Group(); tailG.position.set(0, 3.0, -1.6); body.add(tailG);
+      S(tailG, accM, V(0, 0, 0), V(0.45, 0.12, 0.7), [0.3, 0, 0]);
+      parts.tail.push(tailG);
+      break;
+    }
     default: S(body, bodyM, V(0, 1, 0), 1); eyes(body, V(0, 1.2, 0.85), 0.3, 0.2);
   }
   root.scale.setScalar(T ? vis.talladoScale : vis.broteScale);
@@ -1162,7 +1144,6 @@ function animateCreature(c, t, dt, moving) {
   p.ears.forEach((e, i) => { e.rotation.x = Math.max(0, Math.sin(t * 1.3 + u.phase + i)) ** 8 * 0.4; });
   if (u.react > 0) { u.react = Math.max(0, u.react - dt); const k = u.react / 0.9; u.body.position.y += Math.sin(k * Math.PI) * 1.6; u.body.rotation.y = (1 - k) * Math.PI * 2 * (u.reactSpin || 0); }
 }
-
 // =====================================================================
 // Efectos visuales: chispas, salpicaduras, hojas, rocas, rayos, anillos
 // =====================================================================
@@ -1307,16 +1288,21 @@ function tapWorld(x, y) {
 // =====================================================================
 // Interacciones físicas (mismas anclas y radios que el servidor de Roblox)
 // =====================================================================
+const STATION_OPEN = { Despensa: () => openShop(), Criadero: () => openCriadero(), Tablon: () => openQuests(), RepisaCofres: () => openChests(), Mirador: () => openAdventure() };
+const STATION_ACT = { Despensa: "Comprar comida", Criadero: "Abrir el Criadero", Tablon: "Ver los encargos", RepisaCofres: "Ver tus cofres", Mirador: "Mapa del Acto I" };
+const incPos = lotC.clone().add(v3(W.Lots.incubatorOffset)), vitPos = lotC.clone().add(v3(W.Lots.vitrinaOffset));
 const interactables = [
-  ...CFG.Onboarding.StarterEggs.map((egg) => ({ id: egg.eggId, pos: eggs[egg.eggId].base, radius: W.EggInteractRadius, obj: "Huevo de copal", act: "Elegir este huevo", enabled: () => P.step === "ChooseEgg", run: () => confirmEgg(egg.eggId) })),
-  { id: "nexo", pos: treeBase.clone().add(V(0, 0, W.GranNexo.trunkRadius)), radius: W.GranNexo.interactRadius, obj: "Gran Nexo", act: "Abrir el menú del árbol", enabled: () => P.step !== "ChooseEgg", run: () => openNexoMenu() },
-  { id: "despensa", pos: v3(W.Stations.Despensa.position), radius: W.Stations.Despensa.radius, obj: "Despensa del Gabinete", act: "Comprar comida", enabled: () => !!starterPet(), run: () => openShop() },
-  { id: "collector", pos: collectorPos, radius: 10, obj: "Recolector", act: "Recoger Monedas", enabled: () => P.lotUnlocked, run: () => collectCoins() },
-  ...slotWorld.map((p, s) => ({ id: "slot" + s, pos: p, radius: 7, obj: `Hábitat · lugar ${s + 1}`, act: "Gestionar hábitat", enabled: () => P.lotUnlocked, run: () => openSanctuary() })),
-  ...WORLD_ENCOUNTERS.map((encId) => ({ id: encId, pos: encounterSpots[encId].pos, radius: W.Encounters[CFG.Encounters.ById[encId].worldMarker].radius, obj: CFG.Encounters.ById[encId].name, act: "Restaurar al Opaco", enabled: () => encounterAvailable(encId), run: () => startBattle(encId) })),
+  ...CFG.Onboarding.StarterEggs.map((egg) => ({ id: egg.eggId, pos: eggs[egg.eggId].base, radius: W.EggInteractRadius, obj: "Huevo de copal", act: "Elegir este huevo", enabled: () => step() === "ChooseEgg", run: () => confirmEgg(egg.eggId) })),
+  { id: "nexo", pos: treeBase.clone().add(V(0, 0, W.GranNexo.trunkRadius)), radius: W.GranNexo.interactRadius, obj: "Gran Nexo", act: "Abrir el menú del árbol", enabled: () => step() !== "ChooseEgg", run: () => openNexoMenu() },
+  ...Object.entries(W.Stations).filter(([id, st]) => st.implemented && STATION_OPEN[id]).map(([id, st]) => ({ id, pos: v3(st.position), radius: st.radius, obj: st.label, act: STATION_ACT[id], enabled: () => !!starterPet(), run: STATION_OPEN[id] })),
+  { id: "collector", pos: collectorPos, radius: 10, obj: "Recolector", act: "Recoger Monedas", enabled: () => lotUnlocked(), run: () => collectCoins() },
+  { id: "incubator", pos: incPos, radius: 7, obj: "Incubadora del lote", act: "Abrir el Criadero", enabled: () => lotUnlocked(), run: () => openCriadero() },
+  { id: "vitrina", pos: vitPos, radius: 8, obj: "Vitrina", act: "Elegir la exhibición", enabled: () => lotUnlocked(), run: () => openSanctuary("vitrina") },
+  ...slotWorld.map((p, s) => ({ id: "slot" + s, pos: p, radius: 7, obj: `Hábitat · lugar ${s + 1}`, act: "Gestionar hábitat", enabled: () => lotUnlocked(), run: () => openSanctuary() })),
+  ...WORLD_ENCOUNTERS.map((encId) => ({ id: encId, pos: encounterSpots[encId].pos, radius: W.Encounters[CFG.Encounters.ById[encId].worldMarker].radius, obj: CFG.Encounters.ById[encId].name, act: "Restaurar al Opaco", enabled: () => encounterAvailable(encId), run: () => openStage(encId) })),
 ];
 let currentPrompt = null;
-function interact() { if (currentPrompt) currentPrompt.run(); }
+function interact() { if (currentPrompt && !modalOpen) currentPrompt.run(); }
 $("#prompt").addEventListener("click", () => interact());
 function updatePrompt() {
   let best = null, bd = Infinity;
@@ -1326,58 +1312,125 @@ function updatePrompt() {
     currentPrompt = best;
     if (best) { el.querySelector(".obj").textContent = best.obj; el.querySelector(".act").textContent = best.act; el.querySelector("kbd").textContent = isTouch ? "👆" : "E"; }
   }
-  el.classList.toggle("hidden", !best || inputLocked);
+  el.classList.toggle("hidden", !best || inputLocked || modalOpen);
 }
 
 // =====================================================================
-// Acompañante y criaturas del santuario
+// Acompañante, hábitat, vitrina, decoración y Opacos del mundo
 // =====================================================================
 let companionModel = null, companionKey = "";
 const habitatModels = [null, null, null, null];
+const vitrinaModels = [null, null, null];
+const decorModels = [];
+function syncModel(list, i, want, build) {
+  const cur = list[i];
+  if ((cur?.userData.key || "") === want) return;
+  if (cur) scene.remove(cur);
+  list[i] = null;
+  if (want) { const m = build(); m.userData.key = want; scene.add(m); list[i] = m; }
+}
 function syncCreatures() {
   const pet = companion();
   const key = pet ? `${pet.speciesId}|${pet.form}` : "";
-  if (key !== companionKey) {
+  if (key !== companionKey && !(battle && battle.me)) {
+    const at = companionModel ? companionModel.position.clone() : player.position.clone().add(V(3, 0, 3));
     if (companionModel) scene.remove(companionModel);
     companionModel = null; companionKey = key;
-    if (pet && P.firsts.hatch_completed) { companionModel = buildCreature(pet.speciesId, pet.form); companionModel.position.copy(player.position).add(V(3, 0, 3)); scene.add(companionModel); }
+    if (pet && P.firsts.hatch_completed) { companionModel = buildCreature(pet.speciesId, pet.form); companionModel.position.copy(at); scene.add(companionModel); }
   }
-  P.habitat.slots.forEach((id, s) => {
-    const want = id && P.pets[id] && id !== P.companion ? `${P.pets[id].speciesId}|${P.pets[id].form}` : "";
-    const cur = habitatModels[s];
-    if ((cur?.userData.key || "") !== want) {
-      if (cur) scene.remove(cur);
-      habitatModels[s] = null;
-      if (want) { const pet2 = P.pets[id]; const m = buildCreature(pet2.speciesId, pet2.form); m.userData.key = want; m.position.copy(slotWorld[s]).setY(1.9); m.rotation.y = Math.PI; scene.add(m); habitatModels[s] = m; }
-    }
+  home().slots.forEach((id, s) => {
+    const p2 = id && P.pets[id];
+    const want = p2 && id !== P.companionPetId ? `${p2.speciesId}|${p2.form}` : "";
+    syncModel(habitatModels, s, want, () => { const m = buildCreature(p2.speciesId, p2.form); m.position.copy(slotWorld[s]).setY(1.9); m.rotation.y = Math.PI; return m; });
+  });
+  for (let k = 0; k < 3; k++) {
+    const id = P.showcase[k], p2 = id && P.pets[id];
+    const want = p2 && lotUnlocked() ? `${p2.speciesId}|${p2.form}|v` : "";
+    syncModel(vitrinaModels, k, want, () => { const m = buildCreature(p2.speciesId, p2.form); m.scale.multiplyScalar(0.42); m.position.set(vitPos.x + (k - 1) * 5, 1.9, vitPos.z); m.rotation.y = Math.PI; return m; });
+  }
+  P.decor.slots.forEach((decorId, s) => {
+    const want = decorId && lotUnlocked() ? decorId : "";
+    syncModel(decorModels, s, want, () => { const m = buildDecor(decorId); const o = CFG.Decor.SlotOffsets[s]; m.position.set(lotC.x + o[0], 0.7, lotC.z + o[2]); faceTo(m, lotC.x, lotC.z); return m; });
   });
   for (const encId of WORLD_ENCOUNTERS) {
     const spot = encounterSpots[encId];
-    const spId = opponentSpecies(encId);
+    if (battle && battle.spot === spot) continue; // el escenario del combate no se toca
+    const spId = EncounterRules.opponentSpecies(P, encId);
     const want = spId && encounterAvailable(encId) ? spId : "";
-    if ((spot.creature?.userData.speciesId || "") !== want || (spot.creature && spot.creature.userData.restoredFor !== !!P.cleared[encId])) {
+    const cleared = !!P.story.cleared[encId];
+    if ((spot.creature?.userData.speciesId || "") !== want || (spot.creature && spot.creature.userData.restoredFor !== cleared)) {
       if (spot.creature) scene.remove(spot.creature);
       spot.creature = null;
-      if (want) { const enc = CFG.Encounters.ById[encId]; const m = buildCreature(spId, enc.opponent.form, true); m.userData.restoredFor = !!P.cleared[encId]; m.position.copy(spot.pos); m.rotation.y = Math.PI / 2; scene.add(m); spot.creature = m; }
+      if (want) { const enc = CFG.Encounters.ById[encId]; const m = buildCreature(spId, enc.opponent.form, true); m.userData.restoredFor = cleared; m.position.copy(spot.pos); m.rotation.y = Math.PI / 2; scene.add(m); spot.creature = m; }
     }
-    spot.fog.forEach((f) => (f.visible = !P.cleared[encId] || !!spot.creature));
+    spot.fog.forEach((f) => (f.visible = !cleared || !!spot.creature));
     const enc = CFG.Encounters.ById[encId];
-    spot.label.el.innerHTML = want ? `${enc.name}<small>${P.cleared[encId] ? "Repetir (25 % de premio)" : "Opaco · nivel " + enc.opponent.level}</small>` : "";
+    spot.label.el.innerHTML = want ? `${enc.name}<small>${cleared ? "Repetir (25 % de premio)" : "Opaco · nivel " + enc.opponent.level}</small>` : "";
   }
+  syncIncubators();
 }
-function opponentSpecies(encId) {
-  const enc = CFG.Encounters.ById[encId];
-  if (enc.opponent.speciesId) return enc.opponent.speciesId;
-  const st = starterPet(); if (!st) return null;
-  return enc.opponent.byStarterElement[species(st.speciesId).elements[0]];
+// Huevo flotante de la incubadora según el estado del "servidor" (ranura 1 en el lote,
+// primera ranura ocupada en el Criadero)
+function syncIncubators() {
+  const t = serverNow();
+  const busy = P.incubators.map((s, i) => ({ slot: i + 1, egg: s.eggId ? P.eggs[s.eggId] : null })).filter((x) => x.egg);
+  incubatorProps.forEach((prop, k) => {
+    const entry = k === 0 ? busy[0] : busy.find((b) => b.slot === 1) || busy[0];
+    const egg = entry ? entry.egg : null;
+    prop.egg = egg;
+    prop.eggG.visible = !!egg; prop.beam.visible = !!egg;
+    if (!egg) { prop.light.intensity = 0; return; }
+    const pr = EggRules.progress(egg, t);
+    prop.shellMat.color.copy(col(CFG.Rarities.ById[egg.rarity].frameColor)).lerp(new THREE.Color(0xe9a648), 0.55);
+    prop.cracks.forEach((c, i) => (c.visible = pr >= CFG.Incubation.CrackStages[i]));
+    prop.light.intensity = 10 + pr * 30;
+    prop.ready = pr >= 1;
+  });
+}
+// Objetos de decoración: blockouts sencillos por forma (Config/Decor.shape)
+function buildDecor(decorId) {
+  const d = CFG.Decor.ById[decorId], g = new THREE.Group();
+  const c = col(d.color).getHex(), a = col(d.accent).getHex();
+  const M1 = mat(c, { rough: 0.85 }), M2 = mat(a, { rough: 0.6 });
+  switch (d.shape) {
+    case "Lantern":
+      mesh(GEO.cyl, mat(0x3a2a20), V(0, 2.5, 0), V(0.18, 5, 0.18), null, g);
+      mesh(GEO.box, mat(0x3a2a20), V(0.8, 4.9, 0), V(1.8, 0.15, 0.15), null, g);
+      { const l = mesh(GEO.sphere, mat(a, { emissive: a, ei: 2.2 }), V(1.5, 3.9, 0), V(0.75, 0.95, 0.75), null, g, false); l.add(new THREE.PointLight(0xffb653, 14, 12, 1.8)); }
+      break;
+    case "Planter":
+      mesh(new THREE.CylinderGeometry(1.3, 0.9, 1.6, 20), M1, V(0, 0.8, 0), null, null, g);
+      for (let k = 0; k < 7; k++) { const ang = (k / 7) * Math.PI * 2; mesh(GEO.dodeca, mat(a, { flat: true }), V(Math.cos(ang) * 0.7, 2.0 + (k % 2) * 0.3, Math.sin(ang) * 0.7), 0.45, [k, k, 0], g); }
+      mesh(GEO.dodeca, mat(a, { flat: true }), V(0, 2.4, 0), 0.55, null, g);
+      break;
+    case "Banner":
+      [-2.6, 2.6].forEach((x) => mesh(GEO.cyl, M1, V(x, 2.6, 0), V(0.2, 5.2, 0.2), null, g));
+      for (let k = 0; k < 6; k++) mesh(new THREE.PlaneGeometry(0.75, 0.95), new THREE.MeshStandardMaterial({ color: PAL.papel[k % 5], map: papelTex, alphaTest: 0.5, side: THREE.DoubleSide }), V(-2.1 + k * 0.84, 4.4 - Math.sin((k / 5) * Math.PI) * 0.35, 0), null, null, g, false);
+      break;
+    case "Stone":
+      mesh(GEO.rbox, mat(c, { map: grecaTex(css(d.accent), css(d.color)), rough: 0.95 }), V(0, 2.2, 0), V(2.2, 4.4, 1.2), null, g);
+      mesh(GEO.rbox, M1, V(0, 0.3, 0), V(3, 0.6, 1.8), null, g);
+      break;
+    case "Bench":
+      mesh(GEO.rbox, M1, V(0, 1.3, 0), V(4.2, 0.35, 1.3), null, g);
+      mesh(GEO.rbox, M1, V(0, 2.3, -0.55), V(4.2, 1.2, 0.25), null, g);
+      [-1.7, 1.7].forEach((x) => mesh(GEO.box, M2, V(x, 0.65, 0), V(0.35, 1.3, 1.1), null, g));
+      break;
+    case "Arch":
+      { const arch = mesh(new THREE.TorusGeometry(2.6, 0.45, 10, 24, Math.PI), M1, V(0, 0.2, 0), null, null, g); arch.rotation.z = 0;
+        for (let k = 0; k < 9; k++) { const ang = (k / 8) * Math.PI; mesh(GEO.sphereLow, mat(a, { flat: true }), V(Math.cos(ang) * 2.6, 0.2 + Math.sin(ang) * 2.6, 0.2), 0.55, null, g); } }
+      break;
+    default: mesh(GEO.rbox, M1, V(0, 1, 0), V(2, 2, 2), null, g);
+  }
+  return g;
 }
 function encounterAvailable(encId) {
-  const enc = CFG.Encounters.ById[encId];
-  if (!starterPet() || STEPS.indexOf(P.step) < STEPS.indexOf("FirstBattle") && !P.completed) return false;
-  return !enc.requires || !!P.cleared[enc.requires];
+  if (!starterPet()) return false;
+  if (!tutorialDone() && STEPS.indexOf(step()) < STEPS.indexOf("FirstBattle")) return false;
+  return EncounterRules.isUnlocked(P, encId);
 }
 function petFx(petId, kind) {
-  if (petId !== P.companion || !companionModel) return;
+  if (petId !== P.companionPetId || !companionModel) return;
   companionModel.userData.react = 0.9; companionModel.userData.reactSpin = kind === "level" ? 1 : 0;
   floater(companionModel.position.clone().add(V(0, 4, 0)), kind === "level" ? "⬆" : "❤", kind === "level" ? "crit" : "heal");
   const at = companionModel.position.clone().add(V(0, 2.5, 0));
@@ -1385,11 +1438,10 @@ function petFx(petId, kind) {
 }
 function playWithCompanion() {
   const pet = companion(); if (!pet) return;
-  const r = Actions.play(pet.id);
-  if (!r.ok) return toast("⏳", r.err);
-  petFx(pet.id, "play"); toast("❤️", `${petName(pet)} juega contigo · Vínculo +${r.bond}`); refreshUI();
+  const r = run("play", pet.id);
+  if (!r.ok) return toast("⏳", r.err === "Cooldown" ? `${esc(petName(pet))} descansa ${r.data.retryIn} s` : errText(r.err));
+  petFx(pet.id, "play"); toast("❤️", `${esc(petName(pet))} juega contigo · Vínculo +${r.data.bondGained}`); refreshUI();
 }
-
 // =====================================================================
 // Retratos (segundo renderizador pequeño para cartas y ficha)
 // =====================================================================
@@ -1405,7 +1457,8 @@ function portrait(speciesId, form, silhouette = false) {
   if (portraitCache.has(key)) return portraitCache.get(key);
   const c = buildCreature(speciesId, form); c.rotation.y = -0.55; pScene.add(c);
   const box = new THREE.Box3().setFromObject(c), size = box.getSize(new THREE.Vector3()), center = box.getCenter(new THREE.Vector3());
-  const d = Math.max(size.x, size.y, size.z) * 1.4;
+  // Encuadre que cabe a lo alto (cántaros, garzas) sin achicar a los bajos
+  const d = Math.max(size.y * 1.95, Math.max(size.x, size.z) * 1.45);
   pCam.position.set(center.x + d * 0.25, center.y + d * 0.18, center.z + d); pCam.lookAt(center);
   portraitR.render(pScene, pCam);
   const url = portraitR.domElement.toDataURL("image/png");
@@ -1414,57 +1467,90 @@ function portrait(speciesId, form, silhouette = false) {
 }
 
 // =====================================================================
-// Interfaz
+// Interfaz base: avisos, ventanas, HUD y objetivo
 // =====================================================================
 function toast(icon, text) {
   const el = document.createElement("div"); el.className = "toast panel"; el.innerHTML = `<span class="t-ico">${icon}</span><span>${text}</span>`;
   $("#toasts").appendChild(el); setTimeout(() => el.remove(), 3200);
+  while ($("#toasts").children.length > 3) $("#toasts").firstElementChild.remove();
 }
-let modalOpen = false;
+let modalOpen = false, modalCleanup = null;
+// opts: { noClose, wide, cls, onClose }
 function openModal(html, onMount, opts = {}) {
+  if (modalCleanup) { const f = modalCleanup; modalCleanup = null; f(); }
   const root = $("#modal-root");
-  root.innerHTML = `<div class="modal panel greca" style="position:relative">${opts.noClose ? "" : '<button class="close-x" data-close>✕</button>'}${html}</div>`;
-  root.classList.remove("hidden"); modalOpen = true; inputLocked = true;
-  root.querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", closeModal));
+  root.innerHTML = `<div class="modal panel greca ${opts.wide ? "wide" : ""} ${opts.cls || ""}" role="dialog" aria-modal="true">${opts.noClose ? "" : '<button class="close-x" data-close aria-label="Cerrar">✕</button>'}${html}</div>`;
+  root.classList.remove("hidden"); modalOpen = true; inputLocked = true; document.body.classList.add("modal-on");
+  root.querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", () => closeModal()));
+  modalCleanup = opts.onClose || null;
   if (onMount) onMount(root.firstElementChild);
 }
-function closeModal() { $("#modal-root").classList.add("hidden"); $("#modal-root").innerHTML = ""; modalOpen = false; inputLocked = !!battle || introActive; refreshUI(); }
+// Pantalla de la Fase 2: cabecera con emblema, título y subtítulo
+function openScreen(emblem, title, sub, body, onMount, opts = {}) {
+  openModal(`<header class="scr-head"><span class="scr-emblem">${emblem}</span><div><h2>${title}</h2>${sub ? `<div class="scr-sub">${sub}</div>` : ""}</div></header>${body}`, onMount, Object.assign({ wide: true }, opts));
+}
+function closeModal() {
+  if (modalCleanup) { const f = modalCleanup; modalCleanup = null; f(); }
+  $("#modal-root").classList.add("hidden"); $("#modal-root").innerHTML = ""; modalOpen = false; document.body.classList.remove("modal-on"); inputLocked = !!battle || introActive || cine; refreshUI();
+}
 function elementBadges(els) { return els.map((e) => `<span class="el-badge" style="background:${css(CFG.Elements.ById[e].color)}">${ELEMENT_ICON[e]} ${e}</span>`).join(""); }
 function hearts(pet) { const h = Leveling.bondHearts(pet.bond), max = CFG.Progression.Bond.Thresholds.length; return "❤".repeat(h) + '<span style="opacity:.3">' + "❤".repeat(max - h) + "</span>"; }
+// Avisos del HUD: lo que espera al jugador en cada pantalla
+function notices() {
+  const t = serverNow();
+  const readyEggs = P.incubators.filter((s) => s.eggId && P.eggs[s.eggId] && t >= P.eggs[s.eggId].readyAt).length;
+  const quests = [...P.quests.daily, P.quests.weekly].filter((q) => q && !q.claimed && q.progress >= q.target).length;
+  return { rewards: Object.keys(P.rewards.pending).length, chests: ChestRules.count(P), readyEggs, quests };
+}
+function setBadge(btn, n) { btn.querySelector(".badge")?.remove(); if (n) btn.insertAdjacentHTML("beforeend", `<i class="badge">${n === true ? "!" : n}</i>`); }
 function refreshUI() {
-  $("#coins").textContent = fmt(P.coins); $("#gems").textContent = fmt(P.gems);
-  const info = stepInfo(P.step);
+  $("#coins").textContent = fmt(coins()); $("#gems").textContent = fmt(P.currencies.Gemas ?? 0);
+  const info = stepInfo(step());
   const ob = $("#objective");
   ob.classList.toggle("hidden", introActive || !!battle);
-  ob.querySelector(".title").textContent = P.completed ? "Explora el Valle Copal" : info.objective;
-  ob.querySelector(".hint").textContent = P.completed ? nextGoalHint() : info.hint;
+  ob.querySelector(".title").textContent = tutorialDone() ? "Explora el Valle Copal" : info.objective;
+  ob.querySelector(".hint").textContent = tutorialDone() ? nextGoalHint() : info.hint;
   const pet = companion();
   const card = $("#companion");
   card.classList.toggle("hidden", !pet || !P.firsts.hatch_completed || !!battle);
   if (pet) {
     const pct = pet.level >= 50 ? 100 : (pet.xp / Leveling.xpToNext(pet.level)) * 100;
-    card.innerHTML = `<img src="${portrait(pet.speciesId, pet.form)}" alt=""><div style="min-width:120px"><div class="nm">${petName(pet)}</div><div class="lv">Nv ${pet.level} · ${pet.form}</div><div class="bar" style="margin:4px 0"><i style="width:${pct}%"></i></div><div class="hearts">${hearts(pet)}</div></div>`;
+    card.innerHTML = `<img src="${portrait(pet.speciesId, pet.form)}" alt=""><div style="min-width:120px"><div class="nm">${esc(petName(pet))}</div><div class="lv">Nv ${pet.level} · ${pet.form}</div><div class="bar" style="margin:4px 0"><i style="width:${pct}%"></i></div><div class="hearts">${hearts(pet)}</div></div>`;
   }
   if (!cine) for (const e of Object.values(eggs)) e.group.visible = !starterPet();
-  const pend = Object.keys(P.pending).length;
-  $("#btn-pet").querySelector(".badge")?.remove();
-  if (pet && Leveling.canEvolve(pet)[0]) $("#btn-pet").insertAdjacentHTML("beforeend", '<i class="badge">!</i>');
-  if (pend) { $("#btn-nexo").querySelector(".badge")?.remove(); $("#btn-nexo").insertAdjacentHTML("beforeend", `<i class="badge">${pend}</i>`); } else $("#btn-nexo").querySelector(".badge")?.remove();
+  const n = notices();
+  setBadge($("#btn-pet"), pet && Leveling.canEvolve(pet)[0]);
+  setBadge($("#btn-nexo"), n.rewards + n.chests + n.readyEggs + n.quests);
+  const next = nextStage();
+  setBadge($("#btn-adventure"), tutorialDone() && next && !P.story.cleared[next] ? true : 0);
+  $("#btn-adventure").classList.toggle("hidden", !starterPet());
   syncCreatures();
+}
+// Siguiente etapa del Acto I por jugar (camino principal, sin secretas)
+function nextStage() {
+  for (const id of CFG.Encounters.Order) { const e = CFG.Encounters.ById[id]; if (e.stageType !== "Secreta" && !P.story.cleared[id] && EncounterRules.isUnlocked(P, id)) return id; }
+  return null;
 }
 function nextGoalHint() {
   const pet = companion(); if (!pet) return "";
+  const n = notices();
+  if (n.rewards) return "Tienes recompensas por reclamar: toca 🌳 Menú.";
   if (Leveling.canEvolve(pet)[0]) return "¡Tu monstruo está listo para tallarse! Abre su ficha.";
-  const next = WORLD_ENCOUNTERS.find((id) => encounterAvailable(id) && !P.cleared[id]);
+  if (n.readyEggs) return "¡Un huevo está listo! Ábrelo en el Criadero.";
+  if (n.chests) return "Tienes un cofre en la Repisa de Cofres.";
+  if (n.quests) return "Un encargo está completo: reclámalo en el Tablón.";
+  const next = WORLD_ENCOUNTERS.find((id) => encounterAvailable(id) && !P.story.cleared[id]);
   if (next) return `Restaura a «${CFG.Encounters.ById[next].name}» en la Linde de las Chinampas.`;
+  const stage = nextStage();
+  if (stage) return `Acto I: «${CFG.Encounters.ById[stage].name}». Ábrelo desde 🗺️ Aventura o el Mirador de Biomas.`;
   return Leveling.nextObjective(pet).text + ". Alimenta, juega y recoge Monedas.";
 }
 function objectiveTarget() {
-  const s = P.step;
+  const s = step();
   if (s === "ChooseEgg") return eggs.EggBarro.base;
   if (s === "MeetHome" || s === "PlaceInHabitat") return lotC;
   if (s === "FirstBattle") return encounterSpots.valle_r1_e1.pos;
-  if (P.completed) { const next = WORLD_ENCOUNTERS.find((id) => encounterAvailable(id) && !P.cleared[id]); return next ? encounterSpots[next].pos : null; }
+  if (tutorialDone()) { const next = WORLD_ENCOUNTERS.find((id) => encounterAvailable(id) && !P.story.cleared[id]); return next ? encounterSpots[next].pos : null; }
   return null;
 }
 const beacon = addLabel(V(0, 0, 0), "⬇", { cls: "beacon", max: 600, visible: () => !!objectiveTarget() && !battle && !introActive });
@@ -1477,134 +1563,13 @@ function updateObjectiveArrow() {
   const a = Math.atan2(local.x, -local.z); // 0 = al frente, positivo = a la derecha
   arrow.style.transform = `rotate(${a * (180 / Math.PI) - 90}deg)`;
 }
-
-// ---------- Ficha del monstruo ----------
-function openPetSheet(petId = P.companion) {
-  const pet = P.pets[petId]; if (!pet) return toast("🥚", "Primero elige tu huevo junto al Gran Nexo.");
-  const sp = species(pet.speciesId), fb = Stats.formBase(pet.speciesId, pet.form), obj = Leveling.nextObjective(pet);
-  const [canEvo, why] = Leveling.canEvolve(pet);
-  const rar = CFG.Rarities.ById[sp.rarity];
-  const tal = CFG.Talents.ById[sp.talent], sig = ability(sp.signature);
-  const pct = pet.level >= 50 ? 100 : (pet.xp / Leveling.xpToNext(pet.level)) * 100;
-  const foods = CFG.Economy.FoodOrder.filter((f) => CFG.Economy.Foods[f].sold || (P.items[f] || 0) > 0);
-  openModal(`
-    <div class="card monster" style="border-color:${css(rar.frameColor)}">
-      <div class="gem" style="color:${css(rar.frameColor)}">◆ ${rar.name}</div><div class="els">${elementBadges(sp.elements)}</div>
-      <img class="portrait" src="${portrait(pet.speciesId, pet.form)}" alt=""><div class="pedestal"></div>
-      <div class="title">${petName(pet)}</div><div class="species">${pet.form === "Tallado" ? sp.talladoName : sp.broteName} · ${sp.role} · ${pet.form}</div>
-    </div>
-    <div class="kv" style="margin-top:12px"><span>Nivel <b>${pet.level}</b></span><span>XP <b>${fmt(pet.xp)} / ${fmt(Leveling.xpToNext(pet.level))}</b></span></div>
-    <div class="bar"><i style="width:${pct}%"></i></div>
-    <div class="kv"><span>Vínculo</span><span class="hearts" style="font-size:16px">${hearts(pet)}</span></div>
-    <div class="objective-box">🎯 ${obj.text} <span style="float:right">${obj.current}/${obj.target}</span></div>
-    ${canEvo ? '<button class="btn" id="evolve" style="width:100%;margin:6px 0 10px">✨ Tallar en ' + sp.talladoName + "</button>" : ""}
-    <div class="food-grid">${foods.map((f) => `<button class="food" data-food="${f}" ${(P.items[f] || 0) < 1 ? "disabled" : ""}><span class="em">${FOOD_ICON[f]}</span>${CFG.Economy.Foods[f].name}<span class="n">×${P.items[f] || 0} · +${CFG.Economy.Foods[f].xp * xpMult()} XP</span></button>`).join("")}</div>
-    <div class="row"><button class="btn jade" id="play">❤ Jugar</button><button class="btn secondary" id="rename">✎ Nombre</button></div>
-    <div class="stats">${["VID", "ATQ", "DEF", "ESE", "VEL"].map((k) => `<span>${k}</span><div class="bar"><i style="width:${(fb[k] / 40) * 100}%"></i></div><span>${fb[k]}</span>`).join("")}</div>
-    <div class="kv"><span>Talento</span><b>${tal.name}</b></div><div class="sub" style="text-align:left;margin:0 0 6px">${tal.text}</div>
-    <div class="kv"><span>Firma</span><b>${sig.name}</b></div><div class="sub" style="text-align:left;margin:0 0 6px">${sig.text}</div>
-    <div class="kv"><span>Mezcla mítica</span></div><div class="sub" style="text-align:left">${sp.mythicMix}</div>
-    <div class="sub" style="font-size:12px">Modelo provisional (blockout). El diseño final pasa por el pipeline de arte y aprobación humana.</div>`,
-    (m) => {
-      m.querySelectorAll("[data-food]").forEach((b) => b.addEventListener("click", () => {
-        const r = Actions.feed(pet.id, b.dataset.food);
-        if (!r.ok) return toast("⚠️", r.err);
-        petFx(pet.id, "play"); toast(FOOD_ICON[b.dataset.food], `+${r.xp} XP${r.bond ? " · Vínculo +" + r.bond : ""}`);
-        refreshUI(); openPetSheet(pet.id);
-      }));
-      m.querySelector("#play").addEventListener("click", () => { closeModal(); playWithCompanion(); });
-      m.querySelector("#rename").addEventListener("click", () => renamePet(pet.id));
-      m.querySelector("#evolve")?.addEventListener("click", () => { closeModal(); evolveSequence(pet.id); });
-    });
-  void why;
-}
-function renamePet(petId) {
-  const pet = P.pets[petId];
-  openModal(`<h2>Ponle nombre</h2><div class="sub">En Roblox, el nombre pasa por el filtro de texto del servidor antes de guardarse.</div>
-    <input class="input" id="nick" maxlength="${CFG.Onboarding.MaxNicknameLength}" value="${pet.nickname || ""}" placeholder="${species(pet.speciesId).broteName}">
-    <div class="row" style="margin-top:12px"><button class="btn secondary" data-close>Cancelar</button><button class="btn" id="ok">Guardar</button></div>`,
-    (m) => { const i = m.querySelector("#nick"); setTimeout(() => i.focus(), 50); m.querySelector("#ok").addEventListener("click", () => { pet.nickname = i.value.trim().slice(0, CFG.Onboarding.MaxNicknameLength) || null; save(); closeModal(); }); });
-}
-
-// ---------- Santuario ----------
-function openSanctuary() {
-  if (!P.lotUnlocked) return toast("🏡", "Visita tu Lote Hogar al sur del río para abrirlo.");
-  const pets = Object.values(P.pets), coins = pendingCoins();
-  openModal(`<h2>Lote Hogar</h2><div class="sub">Hábitat de 4 lugares · ${habitatRate().toFixed(1)} Monedas/h · los monstruos del Vivero no producen</div>
-    <div class="slots">${P.habitat.slots.map((id, s) => id && P.pets[id] ? `<div class="slot filled"><img src="${portrait(P.pets[id].speciesId, P.pets[id].form)}" alt=""><div>${petName(P.pets[id])}${id === P.companion ? " · paseando" : ""}</div><button class="btn small secondary" data-remove="${s}">Retirar</button></div>` : `<div class="slot"><div style="font-size:26px">＋</div>Lugar ${s + 1}${pets.filter((p) => !P.habitat.slots.includes(p.id)).map((p) => `<button class="btn small jade" data-place="${s}" data-pet="${p.id}">Colocar ${petName(p)}</button>`).join("")}</div>`).join("")}</div>
-    <button class="btn" id="collect" style="width:100%" ${coins < 1 ? "disabled" : ""}>Recoger ${fmt(coins)} Monedas</button>
-    <div class="sub" style="margin-top:10px;font-size:13px">Vivero ${pets.filter((p) => !P.habitat.slots.includes(p.id)).length}/${CFG.Sanctuary.InventoryCapacity} · Vitrina e incubadora llegan en la Fase 2.</div>`,
-    (m) => {
-      m.querySelectorAll("[data-place]").forEach((b) => b.addEventListener("click", () => { const r = Actions.place(b.dataset.pet, +b.dataset.place); if (!r.ok) toast("⚠️", r.err); refreshUI(); openSanctuary(); }));
-      m.querySelectorAll("[data-remove]").forEach((b) => b.addEventListener("click", () => { Actions.remove(+b.dataset.remove); refreshUI(); openSanctuary(); }));
-      m.querySelector("#collect").addEventListener("click", () => { closeModal(); collectCoins(); });
-    });
-}
 function collectCoins() {
-  const c = Actions.collect();
+  const r = run("collect");
+  const c = r.ok ? r.data.coins : 0;
   if (c > 0) { toast("🪙", `+${fmt(c)} Monedas`); floater(collectorPos.clone().add(V(0, 6, 0)), `+${fmt(c)}`, "crit"); vfx.coins(collectorPos.clone().add(V(0, 4.5, 0))); }
-  else toast("🪙", "El recolector aún está vacío. Coloca monstruos en el hábitat.");
+  else toast("🪙", r.ok ? "El recolector aún está vacío. Coloca monstruos en el hábitat." : errText(r.err));
   refreshUI();
 }
-// ---------- Despensa ----------
-function openShop() {
-  const foods = CFG.Economy.FoodOrder.filter((f) => CFG.Economy.Foods[f].sold);
-  openModal(`<h2>Despensa del Gabinete</h2><div class="sub">«Lo que ves es lo que te llevas.» Precios fijos en Monedas ganadas jugando. Sin compras reales en esta fase.</div>
-    <div class="travel-list">${foods.map((f) => { const food = CFG.Economy.Foods[f]; return `<button class="travel" data-buy="${f}" ${P.coins < food.price.Monedas ? 'style="opacity:.55"' : ""}><span class="em">${FOOD_ICON[f]}</span><span style="flex:1">${food.name}<small>+${food.xp} XP${food.bond ? " · +" + food.bond + " Vínculo" : ""} · tienes ${P.items[f] || 0}</small></span><span>🪙 ${fmt(food.price.Monedas)}</span></button>`; }).join("")}</div>`,
-    (m) => m.querySelectorAll("[data-buy]").forEach((b) => b.addEventListener("click", () => { const r = Actions.buyFood(b.dataset.buy, 1); toast(r.ok ? FOOD_ICON[b.dataset.buy] : "⚠️", r.ok ? "Comprado" : r.err); refreshUI(); openShop(); })));
-}
-// ---------- Menú del árbol ----------
-function openNexoMenu() {
-  const pend = Object.values(P.pending);
-  const dests = [
-    { id: "Plaza", em: "🌳", name: "Plaza del Gran Nexo", sub: "Corazón del valle", pos: v3(W.TravelPoints.Plaza) },
-    { id: "LoteHogar", em: "🏡", name: "Lote Hogar", sub: P.lotUnlocked ? "Hábitat y recolector" : "Se abre al visitarlo", pos: lotC.clone().add(V(0, 0, 20)), locked: !starterPet() },
-    { id: "Linde", em: "🌫️", name: "Linde de las Chinampas", sub: "Opacos por restaurar", pos: v3(W.TravelPoints.Linde), locked: !starterPet() },
-    { id: "Despensa", em: "🧺", name: "Despensa del Gabinete", sub: "Comida a precio fijo", pos: v3(W.TravelPoints.Despensa), locked: !starterPet() },
-  ];
-  openModal(`<h2>Gran Nexo</h2><div class="sub">El árbol lleva a cada estación; las estaciones se usan en persona.</div>
-    ${pend.length ? `<button class="btn" id="rewards" style="width:100%;margin-bottom:10px">🎁 Reclamar ${pend.length} recompensa(s)</button>` : ""}
-    <div class="travel-list">${dests.map((d) => `<button class="travel ${d.locked ? "locked" : ""}" data-go="${d.id}"><span class="em">${d.em}</span><span>${d.name}<small>${d.sub}</small></span></button>`).join("")}
-    ${["Criadero", "Portal de Arenas", "Tablón de Encargos", "Círculo de Encuentro"].map((n) => `<button class="travel locked"><span class="em">🔒</span><span>${n}<small>Fase 2</small></span></button>`).join("")}</div>
-    <div class="row" style="margin-top:12px"><button class="btn secondary small" id="dev">${DEV.xp ? "Modo prueba: XP ×10 ✔" : "Modo prueba: apagado"}</button><button class="btn secondary small" id="reset">Reiniciar partida</button></div>
-    <div class="sub" style="font-size:12px;margin-top:8px">El modo prueba solo acelera la XP en esta vista previa; el balance de producción no cambia.</div>`,
-    (m) => {
-      m.querySelector("#rewards")?.addEventListener("click", () => { closeModal(); showReward(pend[0].id); });
-      m.querySelectorAll("[data-go]").forEach((b) => b.addEventListener("click", () => { const d = dests.find((x) => x.id === b.dataset.go); if (d.locked) return toast("🔒", "Elige primero tu huevo."); closeModal(); player.position.set(d.pos.x, 0, d.pos.z); if (companionModel) companionModel.position.copy(player.position).add(V(3, 0, 3)); }));
-      m.querySelector("#dev").addEventListener("click", () => { DEV.xp = !DEV.xp; saveDev(); openNexoMenu(); });
-      const reset = m.querySelector("#reset");
-      reset.addEventListener("click", () => {
-        if (reset.dataset.armed) { try { localStorage.removeItem(SAVE_KEY); } catch (e) { /* sin almacenamiento */ } P = newProfile(); location.reload(); return; }
-        reset.dataset.armed = "1"; reset.textContent = "¿Seguro? Toca otra vez";
-      });
-    });
-}
-function openAlbum() {
-  const owned = new Set(Object.values(P.pets).map((p) => p.speciesId));
-  openModal(`<h2>Álbum del Nexo</h2><div class="sub">50 especies · las que faltan se ven como silueta con su número. ${owned.size}/50</div>
-    <div class="inv-grid">${CFG.Species.Order.map((id) => { const sp = species(id), has = owned.has(id), canShow = !!CFG.Visuals.ById[id]; return `<div class="inv-item ${has ? "" : "silhouette"}" style="${has ? "border-color:" + css(CFG.Rarities.ById[sp.rarity].frameColor) : ""}">${canShow ? `<img src="${portrait(id, "Brote")}" alt="">` : `<div style="height:76px;display:grid;place-items:center;font-size:30px;opacity:.35">?</div>`}<div>#${sp.number} ${has ? sp.broteName : "???"}</div></div>`; }).join("")}</div>`);
-}
-$("#btn-pet").addEventListener("click", () => openPetSheet());
-$("#btn-sanctuary").addEventListener("click", () => openSanctuary());
-$("#btn-album").addEventListener("click", () => openAlbum());
-$("#btn-nexo").addEventListener("click", () => openNexoMenu());
-$("#companion").addEventListener("click", () => openPetSheet());
-
-// ---------- Recompensas ----------
-function showReward(rewardId) {
-  const r = P.pending[rewardId]; if (!r) return;
-  const items = [];
-  if (r.currencies.Monedas) items.push(["🪙", `${fmt(r.currencies.Monedas)} Monedas`]);
-  if (r.currencies.Gemas) items.push(["💎", `${fmt(r.currencies.Gemas)} Gemas`]);
-  for (const [k, n] of Object.entries(r.items)) items.push([FOOD_ICON[k], `${n} × ${CFG.Economy.Foods[k].name}`]);
-  if (r.petXp) items.push(["⭐", `${fmt(r.petXp * xpMult())} XP para tu equipo`]);
-  for (const u of r.unlocks) if (u.startsWith("Encounter_")) items.push(["🗺️", `Nuevo Opaco: ${CFG.Encounters.ById[u.replace("Encounter_", "")].name}`]);
-  openModal(`<h2>${r.title}</h2><div class="sub">Recompensa determinista · procedencia registrada</div>
-    <div class="reward-list">${items.map(([e, t], i) => `<div class="reward-item" style="animation-delay:${i * 0.12}s"><span class="em">${e}</span>${t}</div>`).join("")}</div>
-    <button class="btn" id="claim" style="width:100%">Reclamar</button>`,
-    (m) => m.querySelector("#claim").addEventListener("click", () => { Actions.claim(rewardId); closeModal(); toast("🎁", "Recompensa reclamada"); refreshUI(); }), { noClose: true });
-}
-
 // =====================================================================
 // Introducción (el sueño del Tallador) y elección del huevo
 // =====================================================================
@@ -1621,7 +1586,7 @@ function showIntro() {
   const el = $("#intro"); el.classList.remove("hidden");
   let i = -1;
   const draw = () => {
-    if (i < 0) { el.innerHTML = `<button class="btn secondary small skip" id="skip">Saltar</button><div><div class="logo">NEXORA</div><div class="tag">Tierno al nacer. Imponente al tallarse.</div><button class="btn" id="go" style="margin-top:34px;min-width:220px">Comenzar</button></div><div class="note">Vista previa web del vertical slice · modelos provisionales (blockout) · el juego final se construye en Roblox</div>`; }
+    if (i < 0) { el.innerHTML = `<button class="btn secondary small skip" id="skip">Saltar</button><div><div class="logo">NEXORA</div><div class="tag">Tierno al nacer. Imponente al tallarse.</div><button class="btn" id="go" style="margin-top:34px;min-width:220px">Comenzar</button></div><div class="note">Vista previa web · beta de la Fase 2 · modelos provisionales (blockout) · el juego final se construye en Roblox</div>`; }
     else el.innerHTML = `<button class="btn secondary small skip" id="skip">Saltar</button><div><div class="glyph">${INTRO[i][0]}</div><div class="scene-text">${INTRO[i][1]}</div><div class="dots">${INTRO.map((_, k) => `<i class="${k === i ? "on" : ""}"></i>`).join("")}</div><button class="btn" id="go" style="margin-top:28px;min-width:180px">${i === INTRO.length - 1 ? "Despertar" : "Continuar"}</button></div>`;
     el.querySelector("#skip").onclick = () => endIntro(true);
     el.querySelector("#go").onclick = () => { i++; if (i >= INTRO.length) endIntro(false); else draw(); };
@@ -1630,7 +1595,7 @@ function showIntro() {
 }
 function endIntro(skipped) {
   $("#intro").classList.add("hidden"); introActive = false; inputLocked = false;
-  Actions.finishIntro(skipped);
+  run("finishIntro", skipped);
   showWorldUI(); refreshUI();
   toast("🥚", "Tres huevos de copal laten junto al Gran Nexo.");
 }
@@ -1642,9 +1607,9 @@ function confirmEgg(eggId) {
     (m) => m.querySelector("#yes").addEventListener("click", () => { closeModal(); hatchSequence(eggId); }));
 }
 async function hatchSequence(eggId) {
-  const r = Actions.chooseStarter(eggId); if (!r.ok) return;
+  const r = run("chooseStarter", eggId); if (!r.ok) return;
   inputLocked = true; cine = true;
-  const e = eggs[eggId], pet = P.pets[r.petId];
+  const e = eggs[eggId], pet = P.pets[r.data.petId];
   cineCam = { pos: e.base.clone().add(V(0, 6, 13)), look: e.base.clone().add(V(0, 3.5, 0)) };
   const t0 = performance.now();
   await new Promise((res) => { const step = () => { const t = (performance.now() - t0) / 1000; e.group.position.y = 4.3 + Math.min(t, 1.2) * 2.2; e.group.rotation.z = Math.sin(t * 22) * 0.12 * Math.min(1, t); e.glow.intensity = 40 + t * 60; e.shell.material.emissive.setRGB(t * 0.4, t * 0.25, t * 0.05); if (t < 2.6) requestAnimationFrame(step); else res(); }; step(); });
@@ -1653,7 +1618,7 @@ async function hatchSequence(eggId) {
   vfx.ring(burstAt, 0xffd27a, 9, 0.8);
   vfx.burst(burstAt, col(e.egg.pulseColor).getHex(), 36, 10, { life: 1.1, size: 1.1 });
   vfx.burst(burstAt, 0xc98a3a, 26, 7, { up: 0.8, grav: 12, life: 1.4, size: 0.7, normal: true });
-  Actions.ackHatch();
+  run("ackHatch");
   refreshUI();
   if (companionModel) { companionModel.position.copy(e.base).setY(0); companionModel.rotation.y = 0; companionModel.userData.react = 0.9; companionModel.userData.reactSpin = 1; }
   await sleep(900);
@@ -1663,152 +1628,8 @@ async function hatchSequence(eggId) {
     <div class="sub" style="margin-top:12px">${CFG.Onboarding.OtherStartersMessage}</div>
     <input class="input" id="nick" maxlength="${CFG.Onboarding.MaxNicknameLength}" placeholder="Ponle nombre (opcional)">
     <button class="btn" id="ok" style="width:100%;margin-top:12px">¡Vamos!</button>`,
-    (m) => m.querySelector("#ok").addEventListener("click", () => { const n = m.querySelector("#nick").value.trim(); if (n) pet.nickname = n.slice(0, CFG.Onboarding.MaxNicknameLength); save(); closeModal(); toast("🏡", "Sigue la luz de copal hasta tu Lote Hogar."); }), { noClose: true });
+    (m) => m.querySelector("#ok").addEventListener("click", () => { const n = m.querySelector("#nick").value.trim(); if (n) run("setNickname", pet.id, n.slice(0, CFG.Onboarding.MaxNicknameLength)); closeModal(); toast("🏡", "Sigue la luz de copal hasta tu Lote Hogar."); }), { noClose: true });
 }
-async function evolveSequence(petId) {
-  const pet = P.pets[petId]; if (!companionModel) return;
-  inputLocked = true; cine = true;
-  const m = companionModel, base = m.position.clone();
-  cineCam = { pos: base.clone().add(V(0, 7, 15)), look: base.clone().add(V(0, 2.5, 0)) };
-  const t0 = performance.now();
-  await new Promise((res) => { const step = () => { const t = (performance.now() - t0) / 1000; m.rotation.y += 0.05 + t * 0.12; m.position.y = Math.sin(Math.min(t, 2) * Math.PI / 2) * 3; m.userData.mats.forEach((mm) => mm.emissive.setRGB(t * 0.5, t * 0.35, t * 0.1)); const a = t * 9; vfx.burst(base.clone().add(V(Math.cos(a) * 3, 0.5 + t * 2.4, Math.sin(a) * 3)), 0xffc860, 2, 1.5, { life: 0.9, size: 0.8 }); if (t < 2.4) requestAnimationFrame(step); else res(); }; step(); });
-  const r = Actions.evolve(petId);
-  if (r.ok) { vfx.ring(base.clone().add(V(0, 2, 0)), 0xffe08a, 12, 0.9); vfx.burst(base.clone().add(V(0, 3, 0)), 0xffd060, 60, 12, { life: 1.3, size: 1.2 }); }
-  refreshUI();
-  if (companionModel) { companionModel.position.copy(base); companionModel.userData.react = 0.9; companionModel.userData.reactSpin = 1; }
-  await sleep(1300);
-  cine = false; inputLocked = false;
-  const sp = species(pet.speciesId);
-  openModal(`<div class="card monster"><div class="gem">◆ Tallado</div><div class="els">${elementBadges(sp.elements)}</div><img class="portrait" src="${portrait(pet.speciesId, "Tallado")}" alt=""><div class="pedestal"></div><div class="title">${sp.talladoName}</div><div class="species">${sp.talladoDescription}</div></div>
-    <div class="sub" style="margin-top:12px">Mismo monstruo, nueva presencia: conserva su cara, su color base y su rasgo firma. A nivel 20 desbloquea el Golpe Nexo.</div>
-    <button class="btn" data-close style="width:100%">Imponente</button>`, null, { noClose: true });
-}
-
-// =====================================================================
-// Combate PvE (mismo motor que el servidor; aquí el "servidor" es local)
-// =====================================================================
-let battle = null;
-const battleRng = new ENG.Rng(Date.now() % 2147483646);
-function startBattle(encId) {
-  const pet = companion(); if (!pet || battle || !companionModel) return;
-  const enc = CFG.Encounters.ById[encId], spot = encounterSpots[encId];
-  const seed = 1 + Math.floor(battleRng.next() * 2147483640);
-  const state = BE.new({ battleId: `web-${Date.now()}`, seed, sides: [
-    { controller: "Player", team: [{ speciesId: pet.speciesId, form: pet.form, level: pet.level, petId: pet.id, nickname: pet.nickname }] },
-    { controller: "AI", ai: enc.ai, team: [{ speciesId: opponentSpecies(encId), form: enc.opponent.form, level: enc.opponent.level, isOpaco: true, modifier: enc.opponent.modifier }] },
-  ] });
-  first("first_battle_started"); save();
-  const center = spot.pos.clone();
-  const foeModel = spot.creature || buildCreature(opponentSpecies(encId), enc.opponent.form, true);
-  if (!spot.creature) scene.add(foeModel);
-  battle = { state, encId, foe: foeModel, me: companionModel, center, busy: false, home: { me: center.clone().add(V(-4.5, 0, 2.5)), foe: center.clone().add(V(4.5, 0, -2)) } };
-  player.position.copy(center.clone().add(V(-9, 0, 6)));
-  heading = Math.atan2(battle.home.foe.x - player.position.x, battle.home.foe.z - player.position.z);
-  battle.me.position.copy(battle.home.me); battle.foe.position.copy(battle.home.foe);
-  battle.me.lookAt(battle.home.foe.x, 0, battle.home.foe.z); battle.foe.lookAt(battle.home.me.x, 0, battle.home.me.z);
-  cineCam = { pos: center.clone().add(V(-1, isTouch ? 9 : 6.5, isTouch ? 17 : 13)), look: center.clone().add(V(0, 1.6, 0)) };
-  inputLocked = true; cine = true;
-  ["#companion", "#objective", "#dock", "#joystick", "#help"].forEach((s) => $(s).classList.add("hidden"));
-  $("#battle").classList.remove("hidden");
-  renderBattle(`¡Un ${state.sides[1].team[0].name} aparece entre la niebla!`);
-}
-const cardHtml = (c, mine) => {
-  const pct = (c.hp / c.maxHp) * 100, cls = pct < 25 ? "low" : pct < 55 ? "mid" : "";
-  const st = Object.keys(c.statuses).filter((k) => c.statuses[k] > 0).map((k) => `<span>${STATUS_TXT[k] || k}</span>`).join("") + c.mods.map((m) => `<span>${STAT_TXT[m.stat] || m.stat} ${m.amount > 0 ? "▲" : "▼"}</span>`).join("") + (c.shield ? `<span>🛡 ${c.shield.amount}</span>` : "");
-  return `<div class="nm"><span>${c.name}</span><span style="font-size:13px;color:var(--muted)">Nv ${c.level}</span></div>${elementBadges(c.elements)}
-    <div class="bar hp ${cls}"><i style="width:${pct}%"></i></div><div class="hpnum"><span>${Math.max(0, c.hp)} / ${c.maxHp} PV</span>${mine ? `<span class="savia">Savia ${[0, 1, 2].map((k) => `<i class="${k < c.savia ? "on" : ""}"></i>`).join("")}</span>` : ""}</div><div class="status-row">${st}</div>`;
-};
-function renderBattle(caption) {
-  const s = battle.state, me = BE.active(s, 1), foe = BE.active(s, 2);
-  const opts = s.phase === "Ended" ? [] : BE.availableMoves(s, 1);
-  $("#battle").innerHTML = `
-    <div class="foe panel">${cardHtml(foe, false)}</div>
-    <div class="me panel">${cardHtml(me, true)}</div>
-    <button class="btn secondary small flee" id="flee">Huir</button>
-    ${caption ? `<div class="caption panel">${caption}</div>` : ""}
-    <div class="moves">${opts.map((o) => { const mv = ability(o.moveId), ec = CFG.Elements.ById[mv.element].color; const eff = mv.power > 0 ? ElementChart.classify(ElementChart.multiplier(mv.element, foe.elements, mv.kind === "Nexo")) : "Neutral"; const kind = { Basic: "Básico · +1 Savia", Special: "Especial", Signature: "Firma", Nexo: "Golpe Nexo" }[mv.kind];
-      return `<button class="move" data-move="${o.moveId}" ${o.usable && !battle.busy ? "" : "disabled"} style="background:linear-gradient(180deg, ${css(ec.map((x) => Math.min(255, x + 40)))}, ${css(ec)})" title="${mv.text}">
-      <div class="mn">${ELEMENT_ICON[mv.element]} ${mv.name}</div><div class="mm">${kind}${mv.power ? " · " + mv.power : ""}</div>${eff === "Strong" ? '<span class="eff">▲ Eficaz</span>' : eff === "Weak" ? '<span class="eff">▼ Poco</span>' : ""}
-      <span class="cost">${"<i></i>".repeat(o.cost)}</span></button>`; }).join("")}</div>`;
-  $("#battle").querySelectorAll("[data-move]").forEach((b) => b.addEventListener("click", () => playTurn(b.dataset.move)));
-  $("#flee").addEventListener("click", () => playTurn(null));
-}
-function nameOf(uid) { const s = battle.state; return [...s.sides[0].team, ...s.sides[1].team].find((c) => c.uid === uid)?.name || ""; }
-function modelOf(uid) { return uid.startsWith("S1") ? battle.me : battle.foe; }
-async function lunge(model, toward) {
-  const from = model.position.clone(), dir = toward.clone().sub(from).setY(0).normalize();
-  for (let k = 0; k <= 10; k++) { model.position.copy(from).addScaledVector(dir, Math.sin((k / 10) * Math.PI) * 3.2); await sleep(16); }
-  model.position.copy(from);
-}
-async function hitShake(model) { const from = model.position.clone(); for (let k = 0; k < 8; k++) { model.position.x = from.x + (k % 2 ? 0.35 : -0.35); await sleep(22); } model.position.copy(from); }
-let lastMoveElement = null;
-async function playTurn(moveId) {
-  if (!battle || battle.busy) return;
-  const s = battle.state;
-  battle.busy = true;
-  BE.submit(s, 1, moveId ? { kind: "Move", moveId } : { kind: "Forfeit" });
-  BE.submit(s, 2, { kind: "Move", moveId: AI.choose(s, 2, s.sides[1].ai) });
-  const events = BE.resolveTurn(s);
-  renderBattle();
-  for (const e of events) {
-    let cap = null;
-    if (e.t === "Move") {
-      const mv = ability(e.move), from = modelOf(e.actor), to = modelOf(e.actor === "S1C1" ? "S2C1" : "S1C1");
-      cap = `${nameOf(e.actor)} usa <b>${mv.name}</b>`; renderBattle(cap);
-      const ec = mv.element ? col(CFG.Elements.ById[mv.element].color).getHex() : 0xffffff;
-      if (mv.power > 0 && mv.kind !== "Basic") { vfx.burst(from.position.clone().add(V(0, 2, 0)), ec, 16, 4, { life: 0.6 }); await vfx.projectile(from.position.clone().add(V(0, 2.2, 0)), to.position.clone().add(V(0, 1.8, 0)), ec); }
-      else if (mv.power > 0) await lunge(from, to.position);
-      else { vfx.sparkle(from.position.clone().add(V(0, 2, 0)), ec); await sleep(450); }
-      lastMoveElement = mv.element;
-      continue;
-    }
-    if (e.t === "Damage") { const m = modelOf(e.target); vfx.element(e.move === "ConfusionSelfHit" ? null : lastMoveElement, m.position.clone().add(V(0, 1.8, 0))); floater(m.position.clone().add(V(0, 4, 0)), `-${e.amount}`, e.crit ? "crit" : e.eff === "Strong" ? "strong" : e.eff === "Weak" ? "weak" : ""); hitShake(m); cap = e.crit ? "¡Golpe crítico!" : e.eff === "Strong" ? "¡Es muy eficaz!" : e.eff === "Weak" ? "No es muy eficaz…" : null; }
-    else if (e.t === "Heal") { floater(modelOf(e.target).position.clone().add(V(0, 4, 0)), `+${e.amount}`, "heal"); vfx.burst(modelOf(e.target).position.clone().add(V(0, 1, 0)), 0x8ff0b4, 18, 3, { up: 1.5, grav: -3, life: 1.1 }); cap = `${nameOf(e.target)} recupera vida`; }
-    else if (e.t === "Status") cap = `${nameOf(e.target)}: ${STATUS_TXT[e.status] || e.status}`;
-    else if (e.t === "StatusTick") { floater(modelOf(e.target).position.clone().add(V(0, 4, 0)), `-${e.amount}`, ""); cap = `${nameOf(e.target)} sufre quemadura`; }
-    else if (e.t === "Mod") cap = `${STAT_TXT[e.stat] || e.stat} de ${nameOf(e.target)} ${e.amount > 0 ? "sube" : "baja"}`;
-    else if (e.t === "Miss") cap = `${nameOf(e.actor)} falla`;
-    else if (e.t === "Skip") cap = `${nameOf(e.actor)} no puede actuar (${STATUS_TXT[e.status]})`;
-    else if (e.t === "Block") cap = `¡${nameOf(e.target)} bloquea el golpe!`;
-    else if (e.t === "Shield") cap = `${nameOf(e.target)} levanta un escudo`;
-    else if (e.t === "Savia" && e.delta < 0) cap = `${nameOf(e.target)} pierde Savia`;
-    else if (e.t === "Faint") { cap = e.target.startsWith("S2") ? "¡La niebla gris se debilita!" : `${nameOf(e.target)} está cansado`; const m = modelOf(e.target); m.rotation.z = 0.4; }
-    else if (e.t === "Restored") { cap = "✨ ¡El monstruo recupera su color!"; const m = battle.foe; m.rotation.z = 0; vfx.ring(m.position.clone().add(V(0, 1.5, 0)), 0xffffff, 10, 1.0); for (const c of [0xe84a6e, 0xfaba32, 0x40aad6, 0x68be60, 0x9660de]) vfx.burst(m.position.clone().add(V(0, 2, 0)), c, 10, 8, { life: 1.4, size: 0.9 }); const t0 = performance.now(); await new Promise((res) => { const step = () => { const t = (performance.now() - t0) / 1200; setOpaco(m, 1 - Math.min(1, t)); m.position.y = Math.sin(Math.min(1, t) * Math.PI) * 2; if (t < 1) requestAnimationFrame(step); else res(); }; step(); }); }
-    if (cap) { renderBattle(cap); await sleep(650); }
-  }
-  battle.busy = false;
-  if (s.phase === "Ended") return endBattle();
-  renderBattle();
-}
-async function endBattle() {
-  const { state: s, encId } = battle;
-  const won = s.outcome.winner === 1;
-  const enc = CFG.Encounters.ById[encId], pet = companion();
-  renderBattle(won ? "¡Victoria! Nadie muere en NEXORA: el Opaco fue restaurado." : s.outcome.reason === "Forfeit" ? "Te retiras para entrenar." : `${petName(pet)} necesita descansar. ¡Inténtalo de nuevo!`);
-  await sleep(1500);
-  let rewardId = null;
-  if (won) {
-    pet.wins = (pet.wins || 0) + 1;
-    const firstClear = !P.cleared[encId];
-    const day = Math.floor(now() / 86400);
-    if (P.repeat.day !== day) P.repeat = { day, count: 0 };
-    let spec = null;
-    if (firstClear) spec = { bundleId: enc.firstClearBonus, currencies: { Monedas: enc.baseReward.Monedas }, petXp: enc.baseReward.petXp, petIds: [pet.id] };
-    else if (P.repeat.count < CFG.Encounters.Repeat.DailyRewardedRepeats) { spec = { currencies: { Monedas: Math.floor(enc.baseReward.Monedas * 0.25) }, petXp: Math.floor(enc.baseReward.petXp * 0.25), petIds: [pet.id] }; P.repeat.count++; }
-    if (firstClear) P.cleared[encId] = { at: now(), wins: 1 }; else P.cleared[encId].wins++;
-    if (spec) { rewardId = `battle:${s.battleId}`; P.pending[rewardId] = makeReward(rewardId, spec, firstClear ? null : "Opaco restaurado de nuevo"); }
-    first("first_battle_completed");
-  } else if (s.outcome.reason !== "Forfeit") addXp(pet, enc.lossPetXp);
-  refreshOnboarding(); save();
-  $("#battle").classList.add("hidden"); $("#battle").innerHTML = "";
-  if (battle.me) battle.me.rotation.z = 0;
-  battle.foe.rotation.z = 0;
-  setOpaco(battle.foe, 1);
-  battle = null; cine = false; inputLocked = false;
-  showWorldUI(); refreshUI();
-  if (rewardId) showReward(rewardId);
-}
-
 // =====================================================================
 // Bucle principal
 // =====================================================================
@@ -1852,15 +1673,24 @@ function tick() {
     const cMoving = dist > 1.2;
     if (cMoving) { companionModel.position.addScaledVector(to.normalize(), Math.min(dist, (6 + dist * 1.6) * dt)); companionModel.rotation.y = lerpAngle(companionModel.rotation.y, Math.atan2(to.x, to.z), Math.min(1, dt * 8)); }
     animateCreature(companionModel, t, dt, cMoving);
-  } else if (companionModel) animateCreature(companionModel, t, dt, false);
+  } else if (companionModel && !(battle && battle.models.includes(companionModel))) animateCreature(companionModel, t, dt, false);
   habitatModels.forEach((m) => m && animateCreature(m, t, dt, false));
-  for (const encId of WORLD_ENCOUNTERS) { const c = encounterSpots[encId].creature; if (c) animateCreature(c, t, dt, false); encounterSpots[encId].fog.forEach((f, k) => { f.position.y = 1.8 + Math.sin(t * 0.6 + k) * 0.5; f.material.opacity = 0.24 + Math.sin(t * 0.7 + k) * 0.07; f.material.rotation = t * 0.05 * (k % 2 ? 1 : -1); }); }
+  vitrinaModels.forEach((m) => m && animateCreature(m, t, dt, false));
+  for (const prop of incubatorProps) {
+    if (!prop.egg) continue;
+    prop.eggG.position.y = 5 + Math.sin(t * 1.6) * 0.35; prop.eggG.rotation.y += dt * 0.5;
+    if (prop.ready) prop.eggG.rotation.z = Math.sin(t * 18) * 0.06;
+    prop.rings[0].rotation.z += dt * 0.9; prop.rings[1].rotation.z -= dt * 0.6; prop.rings[1].rotation.x = Math.PI / 2 + 0.5 + Math.sin(t * 0.7) * 0.2;
+    prop.beam.material.opacity = 0.14 + Math.sin(t * 2.2) * 0.05;
+  }
+  if (battle) battleTick(t, dt);
+  for (const encId of WORLD_ENCOUNTERS) { const c = encounterSpots[encId].creature; if (c && !(battle && battle.models.includes(c))) animateCreature(c, t, dt, false); encounterSpots[encId].fog.forEach((f, k) => { f.position.y = 1.8 + Math.sin(t * 0.6 + k) * 0.5; f.material.opacity = 0.24 + Math.sin(t * 0.7 + k) * 0.07; f.material.rotation = t * 0.05 * (k % 2 ? 1 : -1); }); }
 
   // Huevos: laten con su color al acercarse (elección por intuición)
   for (const e of Object.values(eggs)) {
     if (!e.group.visible) continue;
     const d = Math.hypot(player.position.x - e.base.x, player.position.z - e.base.z);
-    const near = P.step === "ChooseEgg" && d < W.EggInteractRadius + 4;
+    const near = step() === "ChooseEgg" && d < W.EggInteractRadius + 4;
     e.glow.intensity = lerp(e.glow.intensity, near ? 30 + Math.sin(t * 5) * 18 : 0, 0.1);
     e.group.position.y = 4.3 + Math.sin(t * 2 + e.base.x) * 0.15;
     e.group.rotation.y += dt * 0.3;
@@ -1874,10 +1704,12 @@ function tick() {
   // Llegada al Lote Hogar (el servidor de Roblox valida la misma proximidad)
   if ((homeVisitCheck += dt) > 0.3) {
     homeVisitCheck = 0;
-    if (P.step === "MeetHome" && Math.hypot(player.position.x - lotC.x, player.position.z - lotC.z) < W.Lots.interactRadius) {
-      if (Actions.visitHome()) { toast("🎁", "El Gabinete te regala el Lote Hogar: 3 Raciones y 100 Monedas"); refreshUI(); setTimeout(openSanctuary, 600); }
+    if (step() === "MeetHome" && Math.hypot(player.position.x - lotC.x, player.position.z - lotC.z) < W.Lots.interactRadius) {
+      const r = run("visitHome");
+      if (r.ok && r.data.gifted) { toast("🎁", "El Gabinete te regala el Lote Hogar: 3 Raciones y 100 Monedas"); refreshUI(); setTimeout(() => openSanctuary(), 600); }
     }
-    if (collectorCoinsLabel) collectorCoinsLabel.el.innerHTML = P.lotUnlocked ? `🪙 ${fmt(pendingCoins())}<small>Recolector</small>` : "";
+    if (collectorCoinsLabel) collectorCoinsLabel.el.innerHTML = lotUnlocked() ? `🪙 ${fmt(SanctuaryRules.preview(P, HOME_ID, serverNow()))}<small>Recolector</small>` : "";
+    syncIncubators();
   }
 
   // Cámara
@@ -1908,18 +1740,3 @@ function adaptQuality(dt) {
     usePost = false; pixelRatio = Math.min(pixelRatio, 1); renderer.setPixelRatio(pixelRatio); renderer.setSize(innerWidth, innerHeight);
   }
 }
-
-// Arranque (si se cerró la pestaña a mitad de la eclosión, no se repite)
-P.logins = (P.logins || 0) + 1;
-if (P.step === "Hatch" && starterPet()) Actions.ackHatch();
-settleHabitat();
-refreshOnboarding();
-camPos.copy(player.position).add(V(0, 14, -24)); camTarget.copy(treeBase);
-$("#loading").classList.add("hidden");
-if (P.step === "Intro") showIntro();
-else { inputLocked = false; showWorldUI(); toast("🌳", P.logins > 1 ? "¡Bienvenido de vuelta! Tu progreso se conservó." : "Bienvenido al Valle Copal"); }
-refreshUI();
-requestAnimationFrame(tick);
-setInterval(() => { if (!battle && !modalOpen && !cine) refreshUI(); }, 5000);
-// Ganchos para pruebas automatizadas de la vista previa
-window.__nexora = { portrait, get P() { return P; }, Actions, startBattle, playTurn, openPetSheet, openSanctuary, openNexoMenu, refreshUI, endIntro, hatchSequence, player, get battle() { return battle; }, teleport: (x, z) => player.position.set(x, 0, z) };

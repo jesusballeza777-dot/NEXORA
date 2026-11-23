@@ -150,7 +150,14 @@ local src = ROOT .. "tools/web-preview/src/"
 local html = fs.readFile(src .. "index.html")
 local engine = fs.readFile(src .. "engine.js")
 local normalize = fs.readFile(src .. "normalize.js")
-local game = fs.readFile(src .. "game.js")
+local domain = fs.readFile(src .. "domain.js")
+-- El módulo del juego se arma con sus partes (comparten ámbito; el arranque va al final)
+local parts = {}
+for _, name in ipairs({ "game.js", "battle.js", "screens.js", "boot.js" }) do
+	table.insert(parts, fs.readFile(src .. name))
+end
+local game = table.concat(parts, "\n")
+local css2 = fs.readFile(src .. "phase2.css")
 local function inject(text: string, marker: string, content: string): string
 	local i, j = string.find(text, marker, 1, true)
 	assert(i, "Falta el marcador " .. marker)
@@ -159,6 +166,8 @@ end
 html = inject(html, "/*__NEXORA_CONFIG__*/", "window.NEXORA_CONFIG = " .. json .. ";")
 html = inject(html, "/*__NEXORA_NORMALIZE__*/", normalize)
 html = inject(html, "/*__NEXORA_ENGINE__*/", engine)
+html = inject(html, "/*__NEXORA_DOMAIN__*/", domain)
+html = inject(html, "/*__NEXORA_CSS2__*/", css2)
 html = inject(html, "/*__NEXORA_GAME__*/", game)
 fs.writeDir(ROOT .. "tools/web-preview/dist")
 fs.writeFile(ROOT .. "tools/web-preview/dist/NEXORA_Preview.html", html)
