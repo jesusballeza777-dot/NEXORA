@@ -43,6 +43,16 @@ La lógica pura no puede usar APIs de motor (`task`, `Instance`, `workspace`…)
 - **Interfaz Roblox nueva:** `tests/Unit/ClientUI.spec.luau` la monta con clases reales. Toda pantalla nueva entra en esa prueba.
 - **Catálogo:** `docs/CONTENT_CATALOG.md` se regenera con `lune run tools/catalog/build`; no se edita a mano.
 
+## Fase 3 (World Forge)
+- **Ley visual:** `docs/ART_BIBLE_GENESIS.md`. Guías hijas: materiales, luz, biomas, audio y rendimiento. Plan y estado: `docs/PHASE_3_IMPLEMENTATION.md`.
+- **Criaturas 3D:** se esculpen con `tools/sculpt` (`python3 tools/sculpt/build.py asset <especie> <forma>`).
+  - `tools/sculpt/registry.py` genera `Config/CreatureAssets`; no se edita a mano.
+  - En el juego, `MeshCreature` usa el modelo importado en `ReplicatedStorage.CreatureModels` o, si no está, el blockout.
+  - Ningún activo pasa a `Approved` o `Final` sin una persona.
+- **Efectos:** todo emisor sale de `Config/VFX` y del pool (`Client/VFX`), con el presupuesto de la Biblia por rareza.
+- **Audio:** se reproduce solo con `assetId` real en `Config/AudioCues`. No hay audio aprobado.
+- **No producir más especies** hasta aprobar el estilo de los iniciales (D-038).
+
 ## Flujo de trabajo
 - Herramientas fijadas en `rokit.toml` (rojo, lune, stylua, selene).
 - Antes de cada commit: `./scripts/check.sh` (StyLua, Selene, pruebas Lune, `rojo build`, vista previa y paridad Luau↔JS). Todo debe quedar en verde.

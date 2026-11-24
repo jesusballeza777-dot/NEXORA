@@ -4,17 +4,20 @@ Juego original de fantasía, colección, cuidado, evolución y combate táctico 
 Empiezas con un huevo, cuidas a tu **Brote**, desarrollas su Vínculo, lo entrenas y lo **tallas** en una
 forma imponente que sigue siendo él. *Tierno al nacer. Imponente al tallarse.*
 
-Este repositorio contiene la **Fase 1 (vertical slice)** y la **Fase 2 (content beta)**, construidas según
+Este repositorio contiene la **Fase 1 (vertical slice)**, la **Fase 2 (content beta)** y la **Fase 3 (World Forge: arte, mundo, VFX y animación)**, construidas según
 la Biblia de NEXORA y los prompts maestros *Project Genesis*. La Fase 2 vive en la rama
 `phase-2/content-beta`: colección y Bestiario, huevos e incubadora, cofres ganados jugando, Tablón de
-Encargos, santuario ampliado y el Acto I completo hasta Copalia (`docs/PHASE_2_IMPLEMENTATION.md`).
+Encargos, santuario ampliado y el Acto I completo hasta Copalia (`docs/PHASE_2_IMPLEMENTATION.md`). La Fase 3
+(`docs/PHASE_3_IMPLEMENTATION.md`, rama `claude/nexora-genesis-setup-ml0pwo`) añade la Biblia visual, los seis
+iniciales en 3D (propuesta sin aprobar), el Valle Copal nuevo, los efectos por elemento y rareza, y la animación.
 
 ## Qué hay
 | Parte | Dónde | Estado |
 |---|---|---|
 | Proyecto Roblox (Luau `--!strict`, Rojo) | `src/` | Completo para la Fase 1; pendiente de validar en Studio |
 | Datos de la Biblia (50 especies, 12 elementos, 72 ataques…) | `src/ReplicatedStorage/Shared/Config` | ✅ |
-| Pruebas (unitarias, integración y humo de interfaz, Lune) | `tests/` | ✅ 151 pruebas |
+| Pruebas (unitarias, integración y humo de interfaz, Lune) | `tests/` | ✅ 258 pruebas |
+| Modelos 3D de los iniciales (GLB/OBJ, PBR, rig; propuesta) | `assets/Creatures/Initials/`, escultor en `tools/sculpt/` | 🟡 Sin aprobar ni importar en Studio |
 | Catálogo de contenido (generado desde la config) | `docs/CONTENT_CATALOG.md` | ✅ |
 | Vista previa web jugable (mismas reglas y motor) | `tools/web-preview/dist/NEXORA_Preview.html` | ✅ |
 | Vista de los modelos y el valle **de Roblox** (código real, sin Studio) | `lune run tools/roblox-preview/build` → `build/roblox-preview/` | ✅ |

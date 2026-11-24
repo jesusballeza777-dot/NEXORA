@@ -5,8 +5,9 @@
 | 0 · Auditoría | Repo, Biblia, herramientas, Studio/MCP, riesgos | ✅ Hecha (21 nov 2026) |
 | 1 · Vertical slice | Núcleo jugable: Valle, 3 iniciales provisionales, eclosión, acompañante, lote, cuidado, XP, PvE, recompensa, guardado | 🟡 Código completo y probado fuera de Studio; falta validación en Roblox Studio |
 | 2 · Content beta | Colección (Álbum, Bestiario), huevos e incubadora, cofres ganados jugando, Tablón de Encargos, santuario ampliado, Acto I completo con Copalia, Códice | 🟡 Código del servidor y del cliente de Roblox completo y probado fuera de Studio (rama `phase-2/content-beta`); vista previa web jugable y probada en Chromium; logros (perfil v3); falta Studio |
-| 3 · Retención | Visitas, exhibiciones, eventos configurables, personalización, cosméticos deterministas | ⬜ |
-| 4 · Expansión | Crianza, biomas/actos/guardianes, PvP, temporadas, torneos, posible suscripción | ⬜ |
+| 3 · World Forge | Biblia visual, seis iniciales en 3D (propuesta), Valle Copal y Torre del Nexo nuevos, VFX por elemento y rareza, animación y seguimiento, combate visual, estructura de audio, guías de materiales, luz, biomas y rendimiento | 🟡 Producido y probado fuera de Studio (`docs/PHASE_3_IMPLEMENTATION.md`); falta la aprobación del estilo, la importación en Studio y la medición en el móvil |
+| 4 · Social y competitivo | Arenas 1v1 y 2v2, clasificaciones, temporadas, intercambio, visitas, tienda (Genesis F3 §20) y retención: eventos, personalización, cosméticos deterministas | ⬜ |
+| 5 · Expansión | Crianza, biomas, actos y guardianes, torneos, posible suscripción | ⬜ |
 
 ## Hecho en el bloque 1 (Genesis)
 - Auditoría: repositorio vacío; Biblia compacta leída completa (46 p.); Biblia v5 de 127 p. no está en el repo; Roblox Studio MCP **no conectado**; herramientas compiladas desde crates.io: Rojo 7.7.1, Lune 0.11.1, StyLua 2.6.0, Selene 0.31.0.
@@ -53,7 +54,38 @@
   - catálogo generado (`docs/CONTENT_CATALOG.md`);
   - paquete de arte (`docs/art/`).
 
+## Hecho en la Fase 3 (World Forge) — ver `docs/PHASE_3_IMPLEMENTATION.md`
+- **Auditoría y dirección de arte:**
+  - auditoría visual con capturas «antes»;
+  - `ART_BIBLE_GENESIS.md`;
+  - guías de materiales, luz, biomas, audio y rendimiento.
+- **Criaturas:**
+  - escultor procedural `tools/sculpt` (D-039);
+  - seis iniciales v01 con UV, mapas PBR, LOD y esqueleto, dentro del presupuesto de la Biblia;
+  - tres propuestas visuales (D-038);
+  - ocho entregables por especie.
+- **Integración:**
+  - `MeshCreature` usa el modelo importado en Studio y, si no lo hay, el blockout (D-040);
+  - la vista previa web muestra los iniciales en 3D con huesos.
+- **Mundo:**
+  - Valle Copal sobre terreno, con río que serpentea, cascada, chinampas, mercado y taller;
+  - Gran Nexo de hebras, siete estaciones con identidad y Gabinete que Camina;
+  - lotes y vida ambiental;
+  - muestras de los cuatro biomas (si la fusión final las incluye).
+- **VFX y animación:**
+  - 12 elementos y 6 rarezas con presupuesto;
+  - secuencias de ataque, impactos y cámara;
+  - evolución;
+  - animador por familia;
+  - seguimiento con máquina de estados;
+  - señales de audio sin IDs.
+- **Calidad:**
+  - 258 pruebas Lune;
+  - recorrido móvil de la vista previa 48/48;
+  - el agua del río de la vista previa vuelve a verse.
+
 ## Siguiente bloque (orden recomendado)
+0. **Decidir el estilo visual (D-038)** y aprobar o corregir los seis modelos. Sin eso no se producen más especies.
 1. **Validar en Roblox Studio** con `tests/Playtest/STUDIO_PLAYTEST.md` (conectar Roblox Studio MCP si es posible) y corregir lo que aparezca en la primera ejecución.
 2. **Efectos de combate en Roblox**: partículas por elemento, destellos de golpe y de Golpe Nexo (la vista previa ya los tiene).
 3. **Aprobar el rediseño de los iniciales** (`docs/art/STARTERS_REDESIGN.md`) y responder P1, P2, P4, P11 y P93.
@@ -68,6 +100,8 @@
 | R2 | Tipos | `luau-analyze` no pudo compilarse aquí; el modo `--!strict` no se ha verificado con el analizador. | Abrir en Studio o ejecutar luau-lsp con `rojo sourcemap` |
 | R3 | Balance | Xolumi tarda casi el doble en vencer al primer Opaco (D-008 / B-005). | Revisar con arte y sonido; posible Opaco de Fuego menos defensivo |
 | R4 | Arte | Todos los modelos son blockouts. | Pipeline de arte (Fase 2) |
+| R11 | Arte | Los modelos 3D v01 son propuestas procedurales, sin revisión humana ni importación en Studio. | D-038, `STUDIO_PLAYTEST.md` F3 |
+| R12 | Uso | El límite de uso de la cuenta (5 horas) detuvo a los agentes varias veces durante la Fase 3. | Trabajar con un agente a la vez |
 | R5 | Repositorio | ✅ Resuelto: la rama `phase-2/content-beta` se sube a GitHub. | — |
 | R6 | Fuente | Falta la Biblia v5 completa en `docs/reference/`. | Incorporarla y repasar `DESIGN_DECISIONS.md` |
 | R7 | Producto | 93 preguntas abiertas de la v5.1 (ninguna bloquea la Fase 1). | Priorizar las de la tabla de `DESIGN_DECISIONS.md` §4 |

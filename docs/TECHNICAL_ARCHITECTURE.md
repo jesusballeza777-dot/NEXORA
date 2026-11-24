@@ -124,6 +124,20 @@ Combate: `Battle.Start(encounterId)` (proximidad al Opaco) → el servidor crea 
 - Presupuestos de activos finales (Biblia p. 120): Brote 2 500–4 000 tris, Tallado común–épico 4 000–6 500, texturas 1024², huesos ≤ 18/30, emisores por rareza; prueba con 8 monstruos con aura a 30 fps en el teléfono base.
 - Pendiente de medir en dispositivo real (ver `docs/ROADMAP.md`).
 
+### 7.1. Fase 3: presentación (sin tocar las reglas)
+- **Mundo** (`Server/World/*`): `ValleBuilder` orquesta los demás constructores:
+  - `TerrainBuilder` y `Landform` (terreno primero);
+  - `RiverBuilder`, `FloraBuilder`, `PlazaBuilder`, `GranNexoBuilder` y `TorreBuilder` (siete estaciones);
+  - `GabineteBuilder`, `OficiosBuilder`, `LotsBuilder` y `LindeBuilder`, sobre las utilidades de `WorldKit`.
+- **Vida ambiental:** el servidor etiqueta y `AmbientLifeController` anima en el cliente, con LOD por distancia.
+- **Criaturas:**
+  - `CreatureBuilder` usa el modelo importado (`MeshCreature`, D-040) o el blockout;
+  - `Client/Animation` (`MotionStateMachine`, `CreatureAnimator`) anima piezas o `Bone` por nombre;
+  - `Shared/Domain/FollowSteering` es el seguimiento puro.
+- **Efectos:** `Shared/Config/VFX` contiene los datos. `Client/VFX/*` tiene el pool, el aura, los efectos elementales, el combate, los impactos, la evolución y la cámara.
+- **Audio:** `Shared/Config/AudioCues` contiene los datos y `Client/Audio/SoundController` reproduce, siempre que haya `assetId`.
+- **Arte de biomas:** `Shared/Config/BiomeArt` (paleta, luz, terreno y muestra por bioma). Los presupuestos están en `docs/PERFORMANCE_BUDGET.md`.
+
 ## 8. Pruebas y herramientas
 | Comando | Qué hace |
 |---|---|
@@ -133,6 +147,7 @@ Combate: `Battle.Start(encounterId)` (proximidad al Opaco) → el servidor crea 
 | `rojo serve` | Sincroniza con Roblox Studio (plugin de Rojo) |
 | `lune run tools/web-preview/build` | Exporta la config a JSON y genera `tools/web-preview/dist/NEXORA_Preview.html` |
 | `node tools/web-preview/parity.mjs` | Comprueba que 175 combates sembrados son idénticos en Luau y JS |
+| `python3 tools/sculpt/build.py all` | Esculpe y exporta los seis iniciales (GLB/OBJ/PNG + `asset.json`); `registry.py` regenera `Config/CreatureAssets` y `webpack.py` las versiones web |
 | `lune run tools/roblox-preview/build` | Construye las criaturas (`CreatureBuilder`) y el valle (`ValleBuilder`) reales con `@lune/roblox` y genera `build/roblox-preview/Creatures.html` y `World.html` para revisarlos sin Studio |
 
 El arnés `tests/lib/VirtualGame.luau` reproduce el árbol de instancias de Rojo, así que los módulos usan los mismos `require(script.Parent.X)` en Studio y en Lune. `tests/lib/RobloxSandbox.luau` añade las clases reales de `@lune/roblox` (Instance, CFrame, Enum…): una propiedad o clase mal escrita falla igual que en Studio. No hay física, render, red ni ciclo de juego: eso sigue validándose en Studio.
