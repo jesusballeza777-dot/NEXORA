@@ -18,8 +18,10 @@ local WorldController = require(Client.Controllers.WorldController)
 local BattleController = require(Client.Controllers.BattleController)
 local QuickMenu = require(Client.UI.QuickMenu)
 local LotController = require(Client.Controllers.LotController)
+local AmbientLifeController = require(Client.Controllers.AmbientLifeController)
 local Ceremony = require(Client.UI.Ceremony)
 local Encounters = require(game:GetService("ReplicatedStorage").Shared.Config.Encounters)
+local World = require(game:GetService("ReplicatedStorage").Shared.Config.World)
 local Breeding = require(Client.UI.Screens.Breeding)
 local Adventure = require(Client.UI.Screens.Adventure)
 
@@ -61,6 +63,9 @@ WorldController.init({
 		local open = stationId and stations[stationId]
 		if open then
 			open()
+		elseif stationId and World.Stations[stationId] then
+			-- Estaciones que se presentan pero aún no abren (Portal de Arenas, Círculo)
+			toast(World.Stations[stationId].label .. ": se abrirá más adelante")
 		end
 	end,
 	openSanctuary = Modals.sanctuary,
@@ -154,5 +159,6 @@ end)
 
 WorldController.start()
 LotController.start()
+AmbientLifeController.start()
 -- Oyentes listos: se pide la vista por si el primer envío llegó antes de conectarlos
 Net.request("Profile.Get")

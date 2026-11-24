@@ -16,6 +16,13 @@ for _, method in ipairs({ "FillBlock", "FillBall", "FillCylinder", "FillWedge", 
 	end)
 end
 
+-- Workspace:BulkMoveTo (lo usa la vida ambiental del cliente): mueve las piezas de una vez
+roblox.implementMethod("Workspace", "BulkMoveTo", function(_self, parts: { any }, cframes: { any })
+	for i, part in ipairs(parts) do
+		part.CFrame = cframes[i]
+	end
+end)
+
 local RobloxSandbox = {}
 RobloxSandbox.roblox = roblox
 
@@ -44,7 +51,7 @@ function RobloxSandbox.new(): Sandbox
 			return VirtualGame.game:GetService(name)
 		end,
 	}
-	local env = {
+	local env: { [string]: any } = {
 		game = fakeGame,
 		workspace = workspace,
 		Instance = roblox.Instance,
@@ -63,13 +70,32 @@ function RobloxSandbox.new(): Sandbox
 		Enum = roblox.Enum,
 	}
 	-- Carga un ModuleScript del árbol de Rojo ("ServerScriptService.Server.World.ValleBuilder")
-	-- con el entorno de motor. Sus dependencias puras se cargan con el arnés normal.
+	-- con el entorno de motor. Sus dependencias de servidor y cliente también lo reciben
+	-- (caché por sandbox); las de ReplicatedStorage (puras) se cargan con el arnés normal.
+	local cache: { [any]: any } = {}
+	local function sandboxRequire(target: any): any
+		if type(target) == "string" then
+			return require(target)
+		end
+		local path = target:GetFullName()
+		if
+			not string.find(path, "ServerScriptService", 1, true)
+			and not string.find(path, "StarterPlayerScripts", 1, true)
+		then
+			return VirtualGame.require(target)
+		end
+		if cache[target] == nil then
+			cache[target] = VirtualGame.loadFile(rawget(target, "_file"), target, env)
+		end
+		return cache[target]
+	end
+	env.require = sandboxRequire
 	local function load(path: string): any
 		local node: any = VirtualGame.game
 		for part in string.gmatch(path, "[^%.]+") do
 			node = node:WaitForChild(part)
 		end
-		return VirtualGame.loadFile(rawget(node, "_file"), node, env)
+		return sandboxRequire(node)
 	end
 	return {
 		workspace = workspace,
