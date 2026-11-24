@@ -1,8 +1,9 @@
 --!strict
--- Construye BLOCKOUTS de criaturas a partir de Config/Visuals (arquetipo + paleta).
--- Son modelos provisionales del lado del cliente (no colisionan, no se replican) y
--- se marcan con AssetStatus = "Blockout". Cuando existan modelos aprobados, este
--- módulo clonará el activo real indicado en Visuals.modelAsset.
+-- Construye las criaturas del cliente (no colisionan, no se replican):
+-- * si el modelo 3D está importado en ReplicatedStorage.CreatureModels (MeshCreature,
+--   Fase 3, D-040), lo clona y la animación usa sus huesos;
+-- * si no, construye el BLOCKOUT a partir de Config/Visuals (arquetipo + paleta), marcado
+--   con AssetStatus = "Blockout".
 --
 -- Animación: todas las piezas están ancladas; cada fotograma se recalcula su CFrame
 -- respecto a la raíz y se aplica con workspace:BulkMoveTo (barato y sin física).
@@ -14,6 +15,7 @@ local Visuals = require(Config:WaitForChild("Visuals"))
 local SpeciesConfig = require(Config:WaitForChild("Species"))
 local Guardians = require(Config:WaitForChild("Guardians"))
 local Rarities = require(Config:WaitForChild("Rarities"))
+local MeshCreature = require(script.Parent.MeshCreature)
 
 local CreatureBuilder = {}
 
@@ -28,6 +30,7 @@ export type Creature = {
 	opaco: number,
 	react: number,
 	aura: ParticleEmitter?,
+	mesh: boolean?, -- true: modelo importado con huesos (MeshCreature)
 	destroy: (self: Creature) -> (),
 }
 
@@ -61,7 +64,51 @@ local function newPart(model: Model, shape: string, size: Vector3, color: Color3
 	return p
 end
 
+-- Criatura a partir del modelo importado en Studio (Fase 3, D-040). Mismo contrato que el
+-- blockout: piezas ancladas con su desfase respecto al pivote (pose/update con BulkMoveTo) y,
+-- además, mesh = true para que CreatureAnimator mueva los Bone por nombre.
+local function fromMesh(
+	model: Model,
+	speciesId: string,
+	form: string,
+	opts: { opaco: boolean?, parent: Instance? }?
+): Creature
+	-- desfases respecto a la pieza primaria (la raíz de la criatura queda en su lugar)
+	local origin = if model.PrimaryPart then model.PrimaryPart.CFrame else CFrame.identity
+	local parts: { PartRec } = {}
+	for _, d in ipairs(model:GetDescendants()) do
+		if d:IsA("BasePart") then
+			d.Anchored = true
+			local offset = origin:Inverse() * d.CFrame
+			table.insert(parts, { part = d, offset = offset, kind = "Mesh", index = #parts + 1, baseColor = d.Color })
+		end
+	end
+	local creature: Creature = {
+		model = model,
+		parts = parts,
+		speciesId = speciesId,
+		form = form,
+		scale = 1, -- los activos ya vienen en studs reales (asset.json → sizeStuds)
+		phase = math.random() * 10,
+		opaco = 0,
+		react = 0,
+		aura = nil,
+		mesh = true,
+		destroy = function(self: Creature)
+			self.model:Destroy()
+		end,
+	}
+	CreatureBuilder.setOpaco(creature, if opts and opts.opaco then 1 else 0)
+	model.Parent = if opts and opts.parent then opts.parent else Workspace
+	return creature
+end
+
 function CreatureBuilder.build(speciesId: string, form: string, opts: { opaco: boolean?, parent: Instance? }?): Creature
+	-- Si el modelo 3D está importado en el lugar, se usa; si no, el blockout de siempre.
+	local imported = MeshCreature.build(speciesId, form)
+	if imported then
+		return fromMesh(imported, speciesId, form, opts)
+	end
 	local vis = Visuals.ById[speciesId]
 	assert(vis, "Sin VisualConfiguration para " .. speciesId)
 	local T = form == "Tallado"
@@ -611,6 +658,13 @@ function CreatureBuilder.setOpaco(c: Creature, amount: number)
 	end
 	for _, rec in ipairs(c.parts) do
 		rec.part.Color = rec.baseColor:Lerp(GREY, amount * 0.85)
+		if rec.kind == "Mesh" then
+			-- malla importada: el tinte va en SurfaceAppearance (el color de la pieza no se ve)
+			local sa = rec.part:FindFirstChildOfClass("SurfaceAppearance")
+			if sa then
+				sa.Color = Color3.new(1, 1, 1):Lerp(GREY, amount * 0.85)
+			end
+		end
 		if rec.kind == "Glow" or rec.kind == "Gill" then
 			rec.part.Material = if amount > 0.5 then Enum.Material.SmoothPlastic else Enum.Material.Neon
 		end

@@ -282,6 +282,37 @@ Formato: **estado** · decisión · por qué · consecuencias · dónde vive · 
 - **Cómo se integra:** el modelo importado en Studio vive en `ReplicatedStorage.CreatureModels/<id>` y `MeshCreature` lo clona; si no está, se usa el blockout.
 - `Config/CreatureAssets` se genera desde `assets/` y solo guarda un `rbxassetid` cuando existe.
 
+### D-041 · Mundo de la Fase 3 — PROPUESTA 👤
+Detalle en `WORLD_BUILDING.md` §11:
+- **W-1:** río de 14 puntos que serpentea, con los mismos puentes;
+- **W-2:** tope de 4 000 partes en el valle (medido: 3 216);
+- **W-3:** Portal de Arenas y Círculo de Encuentro presentes pero sellados (Fase 4);
+- **W-4:** recorrido del Gabinete que Camina (≈ 113 s, radio 27; la tienda sigue en el mostrador fijo);
+- **W-5:** hora del valle 15:54, con el sol a unos 30°;
+- **W-6:** pigmentos del mundo al 70 % de saturación;
+- **W-7:** diseño del Gabinete como dirección de arte del Nexum anciano (no fija el diseño);
+- **W-8:** flora del valle de ahuejote, copal, sabino y colorín (requiere revisión cultural).
+
+### D-042 · Efectos visuales — PROPUESTA 👤
+Detalle en `VFX_SYSTEM.md` §11:
+- **VFX-P1 · Aura del Brote:** máximo 1 emisor y además 80 %/50 %. Resuelve de forma provisional la contradicción 15.
+- **VFX-P2 · Raro:** efectos solo al atacar.
+- **VFX-P3 · Emisores por calidad gráfica.**
+- **VFX-P4 · Duraciones:** límites de Genesis (1,6 s y 3,5 s); el Golpe Nexo siempre se puede saltar.
+- **VFX-P5 · Ajustes de efectos:** solo duran la sesión, porque guardarlos exige un remote y una migración del perfil.
+- **VFX-P6 · Evolución corta para todas las rarezas:** la pregunta 12 de la Biblia sigue abierta.
+- **VFX-P7 · Capas de ambiente y estados de música:** estructura propuesta, sin audio.
+- **VFX-P8 · Paletas secundarias de los elementos.**
+
+### D-043 · Animación y seguimiento — PROPUESTA 👤
+Detalle en `ANIMATION_SYSTEM.md` §10:
+- **AN-P1 · Familia de movimiento por especie.**
+- **AN-P2 · Cifras de personalidad de los iniciales.** La Biblia describe el carácter, no los números.
+- **AN-P3 · Sitio del acompañante:** a unos 5,1 studs (4,4 detrás y 2,6 a un lado), con radio personal de 2,6.
+- **AN-P4 · El acompañante salta con su dueño.**
+- **AN-P5 · Opacos en guardia:** se ponen en guardia a menos de 16 studs.
+- **AN-P6 · Nombres de hueso** `gill_L/R` y `wing_L/R` para modelos futuros.
+
 ---
 
 ## 3. Contradicciones detectadas en la Biblia
