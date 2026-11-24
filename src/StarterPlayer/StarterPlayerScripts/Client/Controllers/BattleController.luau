@@ -2,6 +2,10 @@
 -- Presentación del combate PvE. El servidor resuelve; aquí solo se anima.
 -- Flujo: BattleStart → el jugador elige → "Battle.Act" → BattleTurn (eventos +
 -- instantánea) → animación evento a evento → ... → BattleEnd (resultado, recompensa).
+-- Presentación (Fase 3): cada jugada reproduce su secuencia de seis fases con el perfil
+-- de su elemento y el impacto adecuado (CombatVFXController), la cámara apoya la lectura
+-- (CameraDirector: sacudida ≤ 0,3, sin movimiento con «movimiento reducido») y todo se
+-- puede saltar con el botón ⏩. Los eventos del servidor no cambian: solo se leen.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -11,12 +15,19 @@ local Lighting = game:GetService("Lighting")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local World = require(Shared.Config:WaitForChild("World"))
+local VFX = require(Shared.Config:WaitForChild("VFX"))
 local Encounters = require(Shared.Config:WaitForChild("Encounters"))
 local Abilities = require(Shared.Config:WaitForChild("Abilities"))
 local ElementChart = require(Shared.Domain:WaitForChild("ElementChart"))
 
 local Client = script.Parent.Parent
 local CreatureBuilder = require(Client.Creatures.CreatureBuilder)
+local CreatureAnimator = require(Client.Animation.CreatureAnimator)
+local AuraController = require(Client.VFX.AuraController)
+local CombatVFXController = require(Client.VFX.CombatVFXController)
+local ImpactVFXController = require(Client.VFX.ImpactVFXController)
+local CameraDirector = require(Client.VFX.CameraDirector)
+local VFXPlan = require(Client.VFX.VFXPlan)
 local Kit = require(Client.UI.Kit)
 local Net = require(Client.Net)
 
@@ -169,6 +180,22 @@ function BattleController.render(caption: string?)
 			end
 		end
 	end, { Size = UDim2.fromOffset(90, 44), Position = UDim2.fromOffset(12, 60), Parent = gui })
+	if playing or (battle and battle.presenting) then
+		-- Todo se puede saltar (también el Golpe Nexo)
+		Kit.button("⏩ Saltar", "secondary", function()
+			if battle then
+				battle.skip = true
+				if battle.seq then
+					battle.seq.skip()
+				end
+			end
+		end, {
+			Size = UDim2.fromOffset(110, 48),
+			AnchorPoint = Vector2.new(1, 0),
+			Position = UDim2.new(1, -12, 0, 12),
+			Parent = gui,
+		})
+	end
 	if caption then
 		Kit.panel({
 			Size = UDim2.fromOffset(420, 52),
@@ -243,7 +270,25 @@ end
 -- Construye el modelo de un combatiente (los Seres Sagrados usan su propio blockout)
 local function buildFor(c: any, isFoe: boolean): Creature
 	local id = c.guardianId or c.speciesId
-	return CreatureBuilder.build(id, c.form, { opaco = isFoe and c.isOpaco })
+	local creature = CreatureBuilder.build(id, c.form, { opaco = isFoe and c.isOpaco })
+	AuraController.attach(creature, { battle = true })
+	return creature
+end
+
+-- Lado visual de un combatiente: criatura, animador, aura y uid del servidor
+local function sideFor(creature: Creature, uid: string?): any
+	return { creature = creature, anim = CreatureAnimator.new(creature), aura = AuraController.get(creature), uid = uid }
+end
+
+local function pause(seconds: number)
+	local t = 0
+	local limit = if battle and battle.skip then math.min(seconds, 0.15) else seconds
+	while t < limit do
+		t += task.wait()
+		if battle and battle.skip then
+			limit = math.min(limit, 0.15)
+		end
+	end
 end
 
 function BattleController.begin(payload: any)
@@ -263,45 +308,65 @@ function BattleController.begin(payload: any)
 		center = center,
 		mine = mine,
 		theirs = theirs,
+		mineSide = sideFor(mine, me.uid),
+		theirsSide = sideFor(theirs, foe.uid),
 		homeMine = center + Vector3.new(-4.5, 0, 2.5),
 		homeTheirs = center + Vector3.new(4.5, 0, -2),
 		t = 0,
+		skip = false,
+		seq = nil,
+		seqMine = true,
 	}
 	local camera = Workspace.CurrentCamera
 	camera.CameraType = Enum.CameraType.Scriptable
-	TweenService:Create(camera, TweenInfo.new(0.8, Enum.EasingStyle.Quad), {
-		CFrame = CFrame.lookAt(center + Vector3.new(-1, 7, 14), center + Vector3.new(0, 1.6, 0)),
-	}):Play()
+	local follow = VFX.Camera.follow
+	local director = CameraDirector.new(camera)
+	director:setBase(
+		center + Vector3.new(follow.offset[1], follow.offset[2], follow.offset[3]),
+		center + Vector3.new(follow.look[1], follow.look[2], follow.look[3])
+	)
+	battle.director = director
+	-- Transición suave desde la cámara del jugador al encuadre de combate
+	local startCF = camera.CFrame
+	local intro = 0
 	battle.loop = game:GetService("RunService").RenderStepped:Connect(function(dt)
 		battle.t += dt
-		local faceTheirs = math.atan2((battle.homeTheirs - battle.homeMine).X, (battle.homeTheirs - battle.homeMine).Z)
-		CreatureBuilder.update(
-			battle.mine,
-			CFrame.new(battle.homeMine + (battle.offsetMine or Vector3.zero)) * CFrame.Angles(0, faceTheirs, 0),
-			battle.t,
+		local dir = battle.homeTheirs - battle.homeMine
+		local faceTheirs = math.atan2(dir.X, dir.Z)
+		-- Embestida del atacante durante su secuencia
+		local seq = battle.seq
+		local lunge = if seq and not seq.done then seq.lunge else 0
+		local offMine = if battle.seqMine then dir.Unit * lunge else Vector3.zero
+		local offTheirs = if battle.seqMine then Vector3.zero else -dir.Unit * lunge
+		local ms, ts = battle.mineSide, battle.theirsSide
+		ms.anim:setLookTarget(battle.homeTheirs + Vector3.new(0, 1.5, 0))
+		ts.anim:setLookTarget(battle.homeMine + Vector3.new(0, 1.5, 0))
+		ms.anim:update(dt, CFrame.new(battle.homeMine + offMine) * CFrame.Angles(0, faceTheirs, 0), { speed = 0 })
+		ts.anim:update(
 			dt,
-			false
+			CFrame.new(battle.homeTheirs + offTheirs) * CFrame.Angles(0, faceTheirs + math.pi, 0),
+			{ speed = 0 }
 		)
-		CreatureBuilder.update(
-			battle.theirs,
-			CFrame.new(battle.homeTheirs + (battle.offsetTheirs or Vector3.zero))
-				* CFrame.Angles(0, faceTheirs + math.pi, 0),
-			battle.t,
-			dt,
-			false
-		)
+		local final = director:update(dt)
+		if intro < 0.8 then
+			intro += dt
+			local k = math.clamp(intro / 0.8, 0, 1)
+			camera.CFrame = startCF:Lerp(final, k * k * (3 - 2 * k))
+		end
 	end)
 	gui.Enabled = true
 	if foe.guardianId then
-		-- Entrada del Ser Sagrado: la cámara la recorre de abajo arriba antes del combate
-		TweenService:Create(camera, TweenInfo.new(1.6, Enum.EasingStyle.Sine), {
-			CFrame = CFrame.lookAt(center + Vector3.new(2, 3, 9), center + Vector3.new(4.5, 6, -2)),
-		}):Play()
+		-- Presentación del Ser Sagrado: la cámara la recorre de abajo arriba (se puede saltar)
+		battle.theirsSide.anim:trigger("Warn", VFX.Camera.boss.duration)
+		director:beat("Boss", battle.homeTheirs, VFX.Camera.boss.duration)
+		battle.presenting = true
 		BattleController.render(string.format("%s, guardiana del Valle, despierta opacada…", Kit.escape(foe.name)))
-		task.wait(1.8)
-		TweenService:Create(camera, TweenInfo.new(0.8, Enum.EasingStyle.Quad), {
-			CFrame = CFrame.lookAt(center + Vector3.new(-1, 8, 16), center + Vector3.new(0, 2.5, 0)),
-		}):Play()
+		pause(VFX.Camera.boss.duration + 0.2)
+		if battle.skip then
+			director:clear()
+		end
+		battle.presenting = false
+		battle.skip = false
 	end
 	local count = #payload.sides[2].team
 	BattleController.render(
@@ -339,20 +404,6 @@ local function combatantByUid(uid: string): any
 	return nil
 end
 
-local function lunge(isMine: boolean)
-	local dir = (battle.homeTheirs - battle.homeMine).Unit * (if isMine then 1 else -1)
-	for k = 0, 10 do
-		local off = dir * math.sin(k / 10 * math.pi) * 3
-		if isMine then
-			battle.offsetMine = off
-		else
-			battle.offsetTheirs = off
-		end
-		task.wait(1 / 60)
-	end
-	battle.offsetMine, battle.offsetTheirs = nil, nil
-end
-
 local function floater(isMine: boolean, text: string, color: Color3)
 	local creature: Creature = if isMine then battle.mine else battle.theirs
 	local anchor = creature.parts[1].part
@@ -388,20 +439,71 @@ local function nameOf(uid: string): string
 	return ""
 end
 
+-- Espera a que la secuencia llegue a una fase (o termine, o se salte)
+local function waitSeq(seq: any, phase: string)
+	while seq and not seq.reached(phase) do
+		if battle and battle.skip then
+			seq.skip()
+			break
+		end
+		task.wait()
+	end
+end
+
+local function sideOf(uid: string?): any
+	return if uid ~= nil and string.sub(uid, 1, 2) == "S1" then battle.mineSide else battle.theirsSide
+end
+
+-- Impacto suelto (fin de turno: quemadura, raíces, restauración…)
+local function impactOn(e: any, uid: string?)
+	local side = sideOf(uid)
+	local r = ImpactVFXController.forEvent(e, nil, side.creature, { owner = battle })
+	if r.reaction then
+		side.anim:trigger(r.reaction)
+	end
+	if r.shake > 0 then
+		battle.director:shake(r.shake)
+	end
+end
+
+-- Estados que se ven en la postura: aturdido/paralizado/dormido y cansado
+local function syncHolds(snapshot: any)
+	for index, side in ipairs({ battle.mineSide, battle.theirsSide }) do
+		local c = combatant(snapshot, index)
+		if c then
+			local st = c.statuses or {}
+			local stunned = (st.Stun or 0) > 0 or (st.Paralysis or 0) > 0 or (st.Sleep or 0) > 0
+			side.anim:hold(if c.fainted then "Defeat" elseif stunned then "Stun" else nil)
+		end
+	end
+end
+
 local function playTurn(payload: any)
-	for _, e in ipairs(payload.events) do
+	battle.skip = false -- saltar vale para el turno que se está viendo
+	for i, e in ipairs(payload.events) do
 		local caption: string? = nil
 		local isMine = function(uid: string?): boolean
 			return uid ~= nil and string.sub(uid, 1, 2) == "S1"
 		end
 		if e.t == "Move" then
 			local mv = Abilities.ById[e.move]
+			waitSeq(battle.seq, "Done")
 			BattleController.render(string.format("%s usa <b>%s</b>", nameOf(e.actor), mv.name))
-			if mv.power > 0 then
-				lunge(isMine(e.actor))
-			else
-				task.wait(0.45)
+			local attacker = sideOf(e.actor)
+			local target = if attacker == battle.mineSide then battle.theirsSide else battle.mineSide
+			battle.seqMine = isMine(e.actor)
+			battle.seq = CombatVFXController.play({
+				move = mv,
+				attacker = attacker,
+				target = target,
+				events = VFXPlan.moveGroup(payload.events, i),
+				camera = battle.director,
+			})
+			if battle.skip then
+				battle.seq.skip()
 			end
+			-- Las cifras y los textos salen en el impacto
+			waitSeq(battle.seq, "Impact")
 		elseif e.t == "Damage" then
 			floater(
 				isMine(e.target),
@@ -419,32 +521,39 @@ local function playTurn(payload: any)
 		elseif e.t == "Status" then
 			caption = string.format("%s: %s", nameOf(e.target), STATUS[e.status] or e.status)
 		elseif e.t == "StatusTick" then
+			impactOn(e, e.target)
 			floater(isMine(e.target), "-" .. tostring(e.amount), Kit.Color.clay)
 		elseif e.t == "Skip" then
+			impactOn(e, e.actor)
 			caption = string.format("%s no puede actuar", nameOf(e.actor))
 		elseif e.t == "Block" then
 			caption = string.format("¡%s bloquea el golpe!", nameOf(e.target))
 		elseif e.t == "Miss" then
 			caption = nameOf(e.actor) .. " falla"
 		elseif e.t == "Faint" then
+			sideOf(e.target).anim:hold("Defeat")
 			caption = if isMine(e.target) then nameOf(e.target) .. " está cansado" else "¡La niebla gris se debilita!"
 		elseif e.t == "Switch" then
 			local c = combatantByUid(e.to)
 			if c then
 				local foeSide = e.side == 2
+				waitSeq(battle.seq, "Done")
 				local old = if foeSide then battle.theirs else battle.mine
 				old:destroy()
 				local fresh = buildFor(c, foeSide)
 				if foeSide then
 					battle.theirs = fresh
+					battle.theirsSide = sideFor(fresh, c.uid)
 				else
 					battle.mine = fresh
+					battle.mineSide = sideFor(fresh, c.uid)
 				end
 				caption = if foeSide
 					then "¡Otro Opaco entra en combate!"
 					else Kit.escape(c.name) .. " entra en combate"
 			end
 		elseif e.t == "Roots" then
+			impactOn(e, e.target)
 			caption = "🌿 Las raíces curan a " .. nameOf(e.target)
 		elseif e.t == "RootsCut" then
 			floater(isMine(e.target), "✂ raíces", Kit.Color.copalGlow)
@@ -456,17 +565,22 @@ local function playTurn(payload: any)
 			caption = "🏮 " .. tostring(e.text)
 		elseif e.t == "Restored" then
 			caption = "✨ ¡El monstruo recupera su color!"
+			waitSeq(battle.seq, "Done")
 			for k = 10, 0, -1 do
 				CreatureBuilder.setOpaco(battle.theirs, k / 10)
-				task.wait(0.08)
+				pause(0.08)
 			end
-			battle.theirs.react = 0.9
+			battle.theirsSide.anim:hold(nil)
+			battle.theirsSide.anim:trigger("Happy")
+			impactOn(e, e.target)
 		end
 		if caption then
 			BattleController.render(caption)
-			task.wait(0.65)
+			pause(0.65)
 		end
 	end
+	waitSeq(battle.seq, "Done")
+	syncHolds(payload.snapshot)
 	battle.snapshot = payload.snapshot
 	battle.snapshot.options = payload.snapshot.options
 	battle.busy = false
@@ -478,10 +592,19 @@ local function finish(payload: any)
 		then "¡Victoria! Nadie muere en NEXORA: el Opaco fue restaurado."
 		elseif payload.reason == "Forfeit" then "Te retiras para entrenar."
 		else "Tu monstruo necesita descansar. ¡Inténtalo de nuevo!"
+	waitSeq(battle.seq, "Done")
+	-- Victoria: el monstruo celebra con copal; derrota: queda cansado (nunca dramático)
+	if payload.won then
+		battle.mineSide.anim:hold("Victory")
+		ImpactVFXController.play({ "Victory" }, { creature = battle.mine }, { owner = battle })
+	elseif payload.reason ~= "Forfeit" then
+		battle.mineSide.anim:hold("Defeat")
+	end
 	BattleController.render(text)
-	task.wait(1.6)
+	pause(1.6)
 	table.clear(queue)
 	battle.loop:Disconnect()
+	battle.director:clear()
 	battle.mine:destroy()
 	battle.theirs:destroy()
 	dimLights(false)

@@ -258,12 +258,25 @@ function VFXPlan.impactsFor(e: any, move: any?): { string }
 	return {}
 end
 
--- Eventos que pertenecen a la jugada que empieza en events[i] (hasta la siguiente "Move")
+-- Eventos que pertenecen a la jugada que empieza en events[i]: hasta la siguiente "Move"
+-- o hasta un evento de fin de turno (quemadura, raíces, fase, cambio, restauración…)
+local TURN_LEVEL = {
+	Move = true,
+	StatusTick = true,
+	Roots = true,
+	RootsEnd = true,
+	Phase = true,
+	Switch = true,
+	Restored = true,
+	Turn = true,
+	End = true,
+	Field = true,
+}
 function VFXPlan.moveGroup(events: { any }, i: number): { any }
 	local group = {}
 	for k = i + 1, #events do
 		local e = events[k]
-		if e.t == "Move" then
+		if TURN_LEVEL[e.t] then
 			break
 		end
 		table.insert(group, e)
