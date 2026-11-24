@@ -11,21 +11,24 @@
   #hud { position: fixed; left: 12px; top: 12px; right: 12px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; pointer-events: none; }
   #hud strong { background: rgba(20, 28, 22, .72); padding: 8px 12px; border-radius: 10px; }
   #hud small { color: var(--muted); }
-  nav { display: flex; gap: 6px; pointer-events: auto; }
+  nav { display: flex; flex-wrap: wrap; gap: 6px; pointer-events: auto; }
   nav button { min-height: 44px; min-width: 64px; border: 0; border-radius: 10px; background: rgba(20, 28, 22, .72); color: var(--ink); font: inherit; padding: 0 12px; cursor: pointer; }
   nav button[aria-pressed="true"] { background: #e8a33d; color: #2a1c10; }
+  body.clean #hud { display: none; }
 </style>
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }</script>
 </head>
 <body>
 <div id="hud">
-  <strong>Valle Copal · Roblox <small>(ValleBuilder real · luz aproximada)</small></strong>
+  <strong>Valle Copal · Roblox <small>(ValleBuilder real · terreno rasterizado · luz aproximada)</small></strong>
   <nav id="views"></nav>
 </div>
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 const DATA = __DATA__;
+const params = new URLSearchParams(location.search);
+if (params.has('clean')) document.body.classList.add('clean');
 const srgb = (c) => new THREE.Color().setRGB(c[0], c[1], c[2], THREE.SRGBColorSpace);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
@@ -33,7 +36,7 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.05;
+renderer.toneMappingExposure = 1.0;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
@@ -44,73 +47,222 @@ const horizon = srgb(atmo.color);
 // Cielo: degradado de azul de tarde a la bruma de la Atmosphere
 const sky = document.createElement('canvas'); sky.width = 2; sky.height = 256;
 const g2 = sky.getContext('2d'); const grad = g2.createLinearGradient(0, 0, 0, 256);
-grad.addColorStop(0, '#6f9fd6'); grad.addColorStop(0.62, '#b9cbe0'); grad.addColorStop(1, '#' + horizon.getHexString());
+grad.addColorStop(0, '#6f9fd6'); grad.addColorStop(0.6, '#b8c9dc'); grad.addColorStop(1, '#' + horizon.getHexString());
 g2.fillStyle = grad; g2.fillRect(0, 0, 2, 256);
 const skyTex = new THREE.CanvasTexture(sky); skyTex.colorSpace = THREE.SRGBColorSpace;
 scene.background = skyTex;
-scene.fog = new THREE.FogExp2(horizon, 0.0016 + atmo.density * 0.004);
+scene.fog = new THREE.FogExp2(horizon, 0.0011 + atmo.density * 0.0028);
 
-// Sol de la tarde (ClockTime ~16.6): bajo, desde el oeste
+// Sol de la tarde: bajo, desde el oeste-suroeste (altura según ClockTime)
 const hour = DATA.lighting.clockTime;
-const elev = Math.max(0.12, Math.cos(((hour - 12) / 12) * Math.PI) * 0.9);
-const sunDir = new THREE.Vector3(-0.9, elev, 0.35).normalize();
-scene.add(new THREE.HemisphereLight(0xcfe0f5, srgb(DATA.lighting.ambient).multiplyScalar(0.6), 1.1));
-const sun = new THREE.DirectionalLight(0xffdcb0, 2.6);
-sun.position.copy(sunDir.clone().multiplyScalar(260));
+const elev = Math.max(0.2, Math.cos(((hour - 12) / 12) * Math.PI) * 0.95);
+const sunDir = new THREE.Vector3(-0.85, elev, 0.4).normalize();
+scene.add(new THREE.HemisphereLight(0xcfe0f5, srgb(DATA.lighting.ambient).multiplyScalar(0.55), 1.05));
+const sun = new THREE.DirectionalLight(0xffd9a8, 2.7);
+sun.position.copy(sunDir.clone().multiplyScalar(420));
 sun.castShadow = true;
 sun.shadow.mapSize.set(4096, 4096);
-Object.assign(sun.shadow.camera, { left: -230, right: 230, top: 230, bottom: -230, near: 10, far: 700 });
-sun.shadow.bias = -0.0004;
+Object.assign(sun.shadow.camera, { left: -300, right: 300, top: 300, bottom: -300, near: 10, far: 1000 });
+sun.shadow.bias = -0.0005;
+sun.shadow.normalBias = 0.6;
 scene.add(sun);
 
-// Terreno (rellenos de Terrain registrados): pasto, barro y agua
-const DEFAULT_MAT = { Grass: [0.42, 0.62, 0.33], Mud: [0.46, 0.35, 0.27] };
-DATA.terrain.forEach((op, i) => {
-  const isWater = op.material === 'Water';
-  const rgb = isWater ? DATA.water.color : (DATA.materialColors[op.material] || DEFAULT_MAT[op.material] || [0.5, 0.5, 0.5]);
-  const mat = new THREE.MeshStandardMaterial({ color: srgb(rgb), roughness: isWater ? 0.12 : 0.95, metalness: 0,
-    transparent: isWater, opacity: isWater ? 1 - DATA.water.transparency * 0.6 : 1,
-    polygonOffset: true, polygonOffsetFactor: -i, polygonOffsetUnits: -i });
-  let mesh;
-  if (op.kind === 'Block') {
-    mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), mat);
-    const [x, y, z, a, b, c, d, e, f, g, h, k] = op.cf;
-    mesh.matrixAutoUpdate = false;
-    mesh.matrix.set(a, b, c, x, d, e, f, y, g, h, k, z, 0, 0, 0, 1).multiply(new THREE.Matrix4().makeScale(...op.size));
-  } else {
-    mesh = new THREE.Mesh(new THREE.SphereGeometry(op.radius, 48, 24), mat);
-    mesh.position.set(...op.center);
+// ---------------------------------------------------------------------------
+// Terreno: rasteriza los rellenos de Terrain (en orden) en un mapa de alturas con
+// material por vértice y nivel de agua. Air vacía, Water sustituye lo que ocupa y
+// los rellenos al ras pintan el material de la superficie (como Roblox).
+// ---------------------------------------------------------------------------
+const EXT = 410, CELL = 2.5, N = Math.round((EXT * 2) / CELL) + 1;
+const ground = new Float32Array(N * N).fill(-1e9);
+const water = new Float32Array(N * N).fill(-1e9);
+const matIdx = new Uint8Array(N * N);
+const MATS = []; const matId = (m) => { let i = MATS.indexOf(m); if (i < 0) { MATS.push(m); i = MATS.length - 1; } return i; };
+const DEFAULT_MAT = { Grass: [0.42, 0.6, 0.33], LeafyGrass: [0.3, 0.5, 0.29], Ground: [0.6, 0.47, 0.34], Mud: [0.42, 0.32, 0.24],
+  Sand: [0.8, 0.72, 0.56], Rock: [0.59, 0.54, 0.47], Slate: [0.49, 0.44, 0.38], Basalt: [0.33, 0.32, 0.36] };
+function spanBox(op, x, z, wedge) {
+  const [cx, cy, cz, r00, r01, r02, r10, r11, r12, r20, r21, r22] = op.cf;
+  const dx = x - cx, dz = z - cz;
+  const l0 = [r00 * dx + r20 * dz, r01 * dx + r21 * dz, r02 * dx + r22 * dz];
+  const u = [r10, r11, r12];
+  let lo = -Infinity, hi = Infinity;
+  for (let i = 0; i < 3; i++) {
+    const h = op.size[i] / 2;
+    if (Math.abs(u[i]) < 1e-9) { if (Math.abs(l0[i]) > h) return null; continue; }
+    let a = (-h - l0[i]) / u[i], b = (h - l0[i]) / u[i]; if (a > b) [a, b] = [b, a];
+    lo = Math.max(lo, a); hi = Math.min(hi, b);
   }
-  mesh.receiveShadow = !isWater;
-  scene.add(mesh);
-});
-
-// Partes del valle
-const GEO = {
-  Ellipsoid: new THREE.SphereGeometry(0.5, 20, 12), Ball: new THREE.SphereGeometry(0.5, 20, 12),
-  Block: new THREE.BoxGeometry(1, 1, 1), Cylinder: new THREE.CylinderGeometry(0.5, 0.5, 1, 24).rotateZ(Math.PI / 2),
-};
-const ROUGH = { Metal: 0.35, Glass: 0.05, SmoothPlastic: 0.55, Neon: 1 };
-const mats = new Map();
-function materialFor(p) {
-  const key = p.color.join(',') + p.material + p.transparency;
-  if (mats.has(key)) return mats.get(key);
-  const color = srgb(p.color);
-  const m = p.neon
-    ? new THREE.MeshBasicMaterial({ color: color.clone().multiplyScalar(1.5) })
-    : new THREE.MeshStandardMaterial({ color, roughness: ROUGH[p.material] ?? 0.85, metalness: p.material === 'Metal' ? 0.6 : 0 });
-  if (p.transparency > 0 || p.material === 'Glass') { m.transparent = true; m.opacity = Math.min(1 - p.transparency, p.material === 'Glass' ? 0.6 : 1); }
-  mats.set(key, m);
-  return m;
+  if (wedge) { // y·d − z·h ≤ 0 (la pendiente mira a −Z)
+    const d = op.size[2], h = op.size[1];
+    const g0 = l0[1] * d - l0[2] * h, gu = u[1] * d - u[2] * h;
+    if (Math.abs(gu) < 1e-9) { if (g0 > 0) return null; } else if (gu > 0) hi = Math.min(hi, -g0 / gu); else lo = Math.max(lo, -g0 / gu);
+  }
+  if (lo > hi) return null;
+  return [cy + lo, cy + hi];
 }
+function span(op, x, z) {
+  if (op.kind === 'Ball') {
+    const d2 = (x - op.center[0]) ** 2 + (z - op.center[2]) ** 2; if (d2 >= op.radius ** 2) return null;
+    const s = Math.sqrt(op.radius ** 2 - d2); return [op.center[1] - s, op.center[1] + s];
+  }
+  if (op.kind === 'Cylinder') {
+    const [cx, cy, cz] = op.cf; const d2 = (x - cx) ** 2 + (z - cz) ** 2; if (d2 >= op.radius ** 2) return null;
+    return [cy - op.height / 2, cy + op.height / 2];
+  }
+  return spanBox(op, x, z, op.kind === 'Wedge');
+}
+function reach(op) {
+  if (op.kind === 'Ball') return [op.center[0], op.center[2], op.radius];
+  if (op.kind === 'Cylinder') return [op.cf[0], op.cf[2], op.radius];
+  return [op.cf[0], op.cf[2], Math.hypot(...op.size) / 2];
+}
+for (const op of DATA.terrain) {
+  const [ox, oz, rr] = reach(op);
+  const i0 = Math.max(0, Math.floor((ox - rr + EXT) / CELL)), i1 = Math.min(N - 1, Math.ceil((ox + rr + EXT) / CELL));
+  const j0 = Math.max(0, Math.floor((oz - rr + EXT) / CELL)), j1 = Math.min(N - 1, Math.ceil((oz + rr + EXT) / CELL));
+  const m = op.material, mi = matId(m);
+  for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+    const x = -EXT + i * CELL, z = -EXT + j * CELL;
+    const s = span(op, x, z); if (!s) continue;
+    const k = j * N + i, [lo, hi] = s;
+    if (m === 'Air') {
+      if (hi >= ground[k]) ground[k] = Math.min(ground[k], lo);
+      if (water[k] > lo) water[k] = -1e9;
+    } else if (m === 'Water') {
+      if (hi >= ground[k] - 0.01) { if (ground[k] > lo) ground[k] = lo; water[k] = Math.max(water[k], hi); }
+    } else if (hi >= ground[k] - 0.01) {
+      ground[k] = hi; matIdx[k] = mi;
+      if (water[k] > -1e8 && hi >= water[k] - 0.05) water[k] = -1e9;
+    }
+  }
+}
+// Suavizado ligero (Roblox redondea el terreno en vóxeles de 4 studs)
+{
+  const tmp = new Float32Array(ground.length);
+  for (let pass = 0; pass < 2; pass++) {
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+      let s = 0, c = 0;
+      for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++) {
+        const ii = i + a, jj = j + b; if (ii < 0 || jj < 0 || ii >= N || jj >= N) continue;
+        const w = a === 0 && b === 0 ? 2 : 1; s += ground[jj * N + ii] * w; c += w;
+      }
+      tmp[j * N + i] = s / c;
+    }
+    ground.set(tmp);
+  }
+}
+const hash2 = (x, z) => { const s = Math.sin(x * 127.1 + z * 311.7) * 43758.5453; return s - Math.floor(s); };
+function vnoise(x, z) {
+  const xi = Math.floor(x), zi = Math.floor(z), xf = x - xi, zf = z - zi;
+  const u = xf * xf * (3 - 2 * xf), v = zf * zf * (3 - 2 * zf), L = (a, b, t) => a + (b - a) * t;
+  return L(L(hash2(xi, zi), hash2(xi + 1, zi), u), L(hash2(xi, zi + 1), hash2(xi + 1, zi + 1), u), v);
+}
+{
+  const pos = new Float32Array(N * N * 3), col = new Float32Array(N * N * 3);
+  const c = new THREE.Color();
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    const k = j * N + i, x = -EXT + i * CELL, z = -EXT + j * CELL;
+    pos.set([x, ground[k], z], k * 3);
+    const m = MATS[matIdx[k]];
+    c.copy(srgb(DATA.materialColors[m] || DEFAULT_MAT[m] || [0.5, 0.5, 0.5]));
+    const n = vnoise(x * 0.08, z * 0.08) * 0.6 + vnoise(x * 0.3, z * 0.3) * 0.4;
+    c.multiplyScalar(0.9 + n * 0.18);
+    col.set([c.r, c.g, c.b], k * 3);
+  }
+  const idx = [];
+  for (let j = 0; j < N - 1; j++) for (let i = 0; i < N - 1; i++) {
+    const a = j * N + i, b = a + 1, d = a + N, e = d + 1; idx.push(a, d, b, b, d, e);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  geo.setIndex(idx); geo.computeVertexNormals();
+  const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.96 }));
+  mesh.receiveShadow = true; mesh.castShadow = true; scene.add(mesh);
+  // Superficie del agua (se extiende una celda hacia la orilla para cerrar la línea de costa)
+  const wl = new Float32Array(water);
+  for (let j = 1; j < N - 1; j++) for (let i = 1; i < N - 1; i++) {
+    const k = j * N + i; if (water[k] > -1e8) continue;
+    let best = -1e9; for (const o of [1, -1, N, -N]) best = Math.max(best, water[k + o]);
+    if (best > -1e8 && ground[k] > best - 3) wl[k] = Math.min(best, Math.max(best, ground[k] - 0.05));
+  }
+  const wpos = new Float32Array(N * N * 3), widx = [];
+  for (let k = 0; k < N * N; k++) wpos.set([-EXT + (k % N) * CELL, wl[k], -EXT + Math.floor(k / N) * CELL], k * 3);
+  const has = (k) => wl[k] > -1e8;
+  for (let j = 0; j < N - 1; j++) for (let i = 0; i < N - 1; i++) {
+    const a = j * N + i, b = a + 1, d = a + N, e = d + 1;
+    if (has(a) && has(d) && has(b)) widx.push(a, d, b);
+    if (has(b) && has(d) && has(e)) widx.push(b, d, e);
+  }
+  const wg = new THREE.BufferGeometry(); wg.setAttribute('position', new THREE.BufferAttribute(wpos, 3)); wg.setIndex(widx); wg.computeVertexNormals();
+  const wcol = srgb(DATA.water.color);
+  scene.add(new THREE.Mesh(wg, new THREE.MeshStandardMaterial({ color: wcol, roughness: 0.12, metalness: 0.15, transparent: true, opacity: 1 - DATA.water.transparency * 0.55, side: THREE.DoubleSide })));
+  // Suelo lejano bajo la bruma
+  const far = new THREE.Mesh(new THREE.RingGeometry(EXT - 5, 2400, 64, 1).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: srgb(DATA.materialColors.Grass || DEFAULT_MAT.Grass), roughness: 1 }));
+  far.position.y = -1; scene.add(far);
+}
+
+// ---------------------------------------------------------------------------
+// Partes: agrupadas por forma y material en InstancedMesh (miles de piezas)
+// ---------------------------------------------------------------------------
+function wedgeGeometry() { // sección en YZ: (−½,−½) frente abajo, (−½,+½) fondo abajo, (+½,+½) fondo arriba
+  const P = [[-0.5, -0.5], [-0.5, 0.5], [0.5, 0.5]]; const v = [];
+  const tri = (a, b, c) => v.push(...a, ...b, ...c);
+  const pt = (x, i) => [x, P[i][0], P[i][1]];
+  tri(pt(-0.5, 0), pt(-0.5, 2), pt(-0.5, 1)); tri(pt(0.5, 0), pt(0.5, 1), pt(0.5, 2));
+  const quad = (i, j) => { tri(pt(-0.5, i), pt(0.5, i), pt(0.5, j)); tri(pt(-0.5, i), pt(0.5, j), pt(-0.5, j)); };
+  quad(0, 1); quad(1, 2); quad(2, 0);
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3)); g.computeVertexNormals(); return g;
+}
+const GEO = {
+  Ellipsoid: new THREE.SphereGeometry(0.5, 16, 10), Ball: new THREE.SphereGeometry(0.5, 16, 10),
+  Block: new THREE.BoxGeometry(1, 1, 1), Cylinder: new THREE.CylinderGeometry(0.5, 0.5, 1, 18).rotateZ(Math.PI / 2),
+  Wedge: wedgeGeometry(),
+};
+const ROUGH = { Metal: 0.35, Glass: 0.08, SmoothPlastic: 0.55, Neon: 1, Foil: 0.25, DiamondPlate: 0.4 };
+const groups = new Map();
 for (const p of DATA.parts) {
-  const m = new THREE.Mesh(GEO[p.shape] || GEO.Block, materialFor(p));
-  const [x, y, z, a, b, c, d, e, f, g, h, k] = p.cf;
-  m.matrixAutoUpdate = false;
-  m.matrix.set(a, b, c, x, d, e, f, y, g, h, k, z, 0, 0, 0, 1).multiply(new THREE.Matrix4().makeScale(...p.size));
-  m.castShadow = !p.neon && p.transparency < 0.5;
-  m.receiveShadow = true;
-  scene.add(m);
+  const glass = p.material === 'Glass';
+  const opacity = Math.min(1 - p.transparency, glass ? 0.62 : 1);
+  const kind = p.neon ? 'neon' : opacity < 0.99 ? 'clear' + Math.round(opacity * 10) : 'solid';
+  const rough = ROUGH[p.material] ?? 0.85;
+  const key = p.shape + '|' + kind + '|' + rough + '|' + (p.material === 'Metal' ? 'm' : '');
+  if (!groups.has(key)) groups.set(key, { shape: p.shape, kind, rough, opacity, metal: p.material === 'Metal', items: [] });
+  groups.get(key).items.push(p);
+}
+const mtx = new THREE.Matrix4(), scl = new THREE.Matrix4(), col = new THREE.Color();
+for (const g of groups.values()) {
+  const m = g.kind === 'neon'
+    ? new THREE.MeshBasicMaterial({ color: 0xffffff })
+    : new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: g.rough, metalness: g.metal ? 0.6 : 0, transparent: g.kind !== 'solid', opacity: g.opacity, depthWrite: g.kind === 'solid' });
+  const inst = new THREE.InstancedMesh(GEO[g.shape] || GEO.Block, m, g.items.length);
+  g.items.forEach((p, i) => {
+    const [x, y, z, a, b, c, d, e, f, gg, h, k] = p.cf;
+    mtx.set(a, b, c, x, d, e, f, y, gg, h, k, z, 0, 0, 0, 1).multiply(scl.makeScale(...p.size));
+    inst.setMatrixAt(i, mtx);
+    col.copy(srgb(p.color)); if (g.kind === 'neon') col.multiplyScalar(1.4);
+    inst.setColorAt(i, col);
+  });
+  inst.castShadow = g.kind === 'solid'; inst.receiveShadow = g.kind !== 'neon';
+  scene.add(inst);
+}
+
+// Halos de las PointLight y nubes de partículas (aproximadas: solo para revisar dónde están)
+function glowTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d');
+  const r = x.createRadialGradient(32, 32, 0, 32, 32, 32); r.addColorStop(0, 'rgba(255,255,255,1)'); r.addColorStop(0.35, 'rgba(255,255,255,0.35)'); r.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = r; x.fillRect(0, 0, 64, 64); const t = new THREE.CanvasTexture(c); return t;
+}
+const glow = glowTexture();
+for (const l of DATA.lights || []) {
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glow, color: srgb(l.color), blending: THREE.AdditiveBlending, transparent: true, opacity: 0.55, depthWrite: false }));
+  s.position.set(...l.pos); s.scale.setScalar(l.range * 0.55); scene.add(s);
+}
+for (const e of DATA.emitters || []) {
+  const n = Math.round(e.rate * 6), pts = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) pts.set([e.pos[0] + (Math.random() - 0.5) * e.size[0], e.pos[1] + (Math.random() - 0.3) * Math.max(e.size[1], 4), e.pos[2] + (Math.random() - 0.5) * e.size[2]], i * 3);
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pts, 3));
+  const big = e.particle > 1.5;
+  scene.add(new THREE.Points(g, new THREE.PointsMaterial({ map: glow, color: srgb(e.color), size: big ? e.particle * 1.2 : 0.7, transparent: true, opacity: big ? 0.22 : 0.85, depthWrite: false, blending: big ? THREE.NormalBlending : THREE.AdditiveBlending })));
 }
 
 // Cámaras: la del jugador al aparecer (FOV 70 de Roblox) y vistas de revisión
@@ -119,8 +271,15 @@ const VIEWS = {
   aerial: { label: 'Aérea', pos: [150, 170, 230], look: [0, 0, 10] },
   lots: { label: 'Lotes', pos: [10, 26, 168], look: [0, 4, 100] },
   linde: { label: 'Linde', pos: [-40, 20, 30], look: [-105, 4, -20] },
+  nexo: { label: 'Gran Nexo', pos: [-58, 26, 52], look: [0, 46, -36] },
+  torre: { label: 'Estaciones', pos: [44, 40, 30], look: [-6, 8, -52] },
+  gabinete: { label: 'Gabinete', pos: [-40, 10, -8], look: [-24, 13, -25] },
+  market: { label: 'Mercado', pos: [36, 12, 22], look: [110, 6, 14] },
+  chinampas: { label: 'Chinampas', pos: [-80, 20, 102], look: [-140, 0, 58] },
+  cascada: { label: 'Cascada', pos: [120, 18, 74], look: [182, 10, 46] },
+  mirador: { label: 'Mirador', pos: [20, 14, -44], look: [10, 10, -104] },
 };
-const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.5, 2000);
+const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.5, 3000);
 const controls = new OrbitControls(camera, renderer.domElement);
 const nav = document.getElementById('views');
 function setView(id) {
@@ -132,7 +291,7 @@ for (const [id, v] of Object.entries(VIEWS)) {
   const b = document.createElement('button'); b.textContent = v.label; b.dataset.view = id;
   b.onclick = () => setView(id); nav.appendChild(b);
 }
-setView(new URLSearchParams(location.search).get('view') || 'spawn');
+setView(params.get('view') || 'spawn');
 addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
 renderer.setAnimationLoop(() => { controls.update(); renderer.render(scene, camera); });
 document.body.dataset.ready = '1';

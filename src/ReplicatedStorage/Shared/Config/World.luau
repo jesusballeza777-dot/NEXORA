@@ -52,9 +52,25 @@ return Freeze.deep({
 		{ biome = "VeloAstral", position = { -46, 0, -96 } },
 	},
 
-	-- Río y chinampas
+	-- Río y chinampas: nace en la cascada del este (x = 176) y serpentea hacia el Lago de
+	-- las Chinampas, al oeste. Los puntos de control pasan por los dos puentes.
 	River = {
-		points = { { -150, 0, 70 }, { -70, 0, 62 }, { 0, 0, 66 }, { 70, 0, 58 }, { 150, 0, 70 } },
+		points = {
+			{ -168, 0, 62 },
+			{ -136, 0, 60 },
+			{ -104, 0, 62 },
+			{ -80, 0, 68 },
+			{ -54, 0, 58 },
+			{ -28, 0, 68 },
+			{ 0, 0, 64 },
+			{ 28, 0, 56 },
+			{ 54, 0, 66 },
+			{ 78, 0, 56 },
+			{ 104, 0, 62 },
+			{ 128, 0, 68 },
+			{ 152, 0, 58 },
+			{ 176, 0, 48 },
+		},
 		width = 18,
 	},
 	Bridges = { { 0, 0, 64 }, { 104, 0, 62 } },

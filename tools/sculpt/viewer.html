@@ -88,7 +88,23 @@ loader.load(url, (gltf) => {
   root.updateMatrixWorld(true);
   root.traverse((o) => { if (o.isSkinnedMesh) o.skeleton.update(); });
   const box = new THREE.Box3().setFromObject(root, true);
-  const size = box.getSize(new THREE.Vector3()), center = box.getCenter(new THREE.Vector3());
+  let size = box.getSize(new THREE.Vector3()), center = box.getCenter(new THREE.Vector3());
+  if (q.get("avatar")) {
+    // maniquí de 5 studs (altura de un avatar R15) para la prueba de escala
+    const mm = new THREE.MeshStandardMaterial({ color: 0x8a96a8, roughness: 0.7 });
+    const av = new THREE.Group();
+    const part = (geo, x, y, z) => { const m = new THREE.Mesh(geo, mm); m.position.set(x, y, z); m.castShadow = true; av.add(m); };
+    part(new THREE.BoxGeometry(0.9, 1.6, 0.5), 0, 2.9, 0);          // torso
+    part(new THREE.SphereGeometry(0.5, 24, 16), 0, 4.45, 0);        // cabeza
+    part(new THREE.BoxGeometry(0.38, 2.0, 0.42), -0.24, 1.05, 0);   // piernas
+    part(new THREE.BoxGeometry(0.38, 2.0, 0.42), 0.24, 1.05, 0);
+    part(new THREE.BoxGeometry(0.3, 1.6, 0.36), -0.66, 2.8, 0);     // brazos
+    part(new THREE.BoxGeometry(0.3, 1.6, 0.36), 0.66, 2.8, 0);
+    av.position.set(box.min.x - 1.0, box.min.y, center.z);
+    scene.add(av);
+    box.expandByObject(av);
+    box.getSize(size); box.getCenter(center);
+  }
   if (!sil) {
     const ground = new THREE.Mesh(new THREE.CircleGeometry(Math.max(size.x, size.z) * 1.2, 64),
       new THREE.MeshStandardMaterial({ color: 0x4a4236, roughness: 0.95 }));
