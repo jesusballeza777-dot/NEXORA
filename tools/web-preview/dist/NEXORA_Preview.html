@@ -2957,7 +2957,8 @@ function ribbon(curve, width, y, material) {
     const n = V(-t.z, 0, t.x).normalize().multiplyScalar(width / 2);
     verts.push(pts[i].x + n.x, y, pts[i].z + n.z, pts[i].x - n.x, y, pts[i].z - n.z);
     uvs.push(i / (pts.length - 1), 0, i / (pts.length - 1), 1);
-    if (i > 0) { const k = i * 2; idx.push(k - 2, k - 1, k, k - 1, k + 1, k); }
+    // caras hacia arriba (antes miraban hacia abajo y el agua no se veía desde arriba)
+    if (i > 0) { const k = i * 2; idx.push(k - 2, k, k - 1, k - 1, k, k + 1); }
   }
   const g = new THREE.BufferGeometry();
   g.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3));
