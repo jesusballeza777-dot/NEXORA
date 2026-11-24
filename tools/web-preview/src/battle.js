@@ -78,17 +78,21 @@ async function startBattle(encId) {
   battle = {
     state, encId, enc, participants, center, spot: arena.spot, busy: false, boss, byUid: {}, models: [], roots: {}, light: 1, lightTarget: 1,
     prevStars: (P.story.stars[encId] || [false, false, false]).slice(),
-    home: { me: center.clone().add(V(-4.5, 0, 2.5)), foe: center.clone().add(boss ? V(7, 0, -5) : V(4.5, 0, -2)) },
   };
+  // Encuadre: en pantallas verticales (móvil) los rivales se escalonan en profundidad
+  const tall = innerWidth < innerHeight;
+  battle.home = tall
+    ? { me: center.clone().add(boss ? V(-2.5, 0, 3) : V(-2, 0, 2.5)), foe: center.clone().add(boss ? V(3, 0, -5) : V(2.2, 0, -3)) }
+    : { me: center.clone().add(V(-4.5, 0, 2.5)), foe: center.clone().add(boss ? V(7, 0, -5) : V(4.5, 0, -2)) };
   // El Opaco del marcador (si lo hay) se aparta mientras dura el combate de otra etapa
   if (arena.spot && arena.spot.creature && !enc.worldMarker) arena.spot.creature.visible = false;
   if (companionModel) companionModel.visible = false; // vuelve a verse si entra al combate
   placeActive(1); const foeModel = placeActive(2);
   player.position.copy(center.clone().add(V(-9, 0, 6)));
   heading = Math.atan2(battle.home.foe.x - player.position.x, battle.home.foe.z - player.position.z);
-  cineCam = boss
-    ? { pos: center.clone().add(V(-3, isTouch ? 15 : 11, isTouch ? 31 : 24)), look: center.clone().add(V(1, 5, -1)) }
-    : { pos: center.clone().add(V(-1, isTouch ? 9 : 6.5, isTouch ? 17 : 13)), look: center.clone().add(V(0, 1.6, 0)) };
+  cineCam = tall
+    ? (boss ? { pos: center.clone().add(V(0, 13, 34)), look: center.clone().add(V(0, 2, -3)) } : { pos: center.clone().add(V(0, 13, 30)), look: center.clone().add(V(0, 0, -1)) })
+    : (boss ? { pos: center.clone().add(V(-3, 11, 24)), look: center.clone().add(V(1, 5, -1)) } : { pos: center.clone().add(V(-1, 6.5, 13)), look: center.clone().add(V(0, 1.6, 0)) });
   // Corte de cámara al escenario (el jefe entra con un barrido desde lo alto)
   camPos.copy(boss ? center.clone().add(V(-8, 34, 56)) : cineCam.pos); camTarget.copy(cineCam.look);
   if (arena.spot) arena.spot.label.el.innerHTML = "";

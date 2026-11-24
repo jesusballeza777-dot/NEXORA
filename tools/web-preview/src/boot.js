@@ -47,8 +47,9 @@ window.__nexora = {
   boostTeam(level = 22, form = "Tallado", ids = null) { for (const id of ids || (P.team.length ? P.team : [P.companionPetId])) { const p = P.pets[id]; if (p) { p.level = level; p.xp = 0; if (form) p.form = form; } } save(); refreshUI(); },
   devPet(speciesId) { const r = PetRules.create(P, speciesId, { kind: "Dev", at: serverNow() }); save(); refreshUI(); return r.data && r.data.petId; },
   simulateStage, claimAllPending, setAnim: (k) => { ANIM = k; }, serverNow,
-  get debug() { return { scene, camera, companionModel, camPos, camTarget, buildCreature, renderer }; },
+  get debug() { return { scene, camera, companionModel, camPos, camTarget, buildCreature, renderer, THREE }; },
   setCam(p, l) { cine = true; cineCam = { pos: V(...p), look: V(...l) }; camPos.copy(cineCam.pos); camTarget.copy(cineCam.look); },
+  freeCam() { cine = false; cineCam = null; refreshUI(); },
   // Calidad de render para pruebas en GPU por software: "low" (sin postproceso, ½ resolución) o "high"
   setQuality(q) { qualityChecked = true; usePost = q !== "low"; pixelRatio = q === "low" ? 0.5 : Math.min(devicePixelRatio, isTouch ? 1.5 : 1.75); renderer.setPixelRatio(pixelRatio); renderer.setSize(innerWidth, innerHeight); composer.setPixelRatio(pixelRatio); composer.setSize(innerWidth, innerHeight); },
 };

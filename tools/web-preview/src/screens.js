@@ -46,7 +46,7 @@ function openNexoMenu() {
     { id: "team", em: "🐾", name: "Monstruos", badge: companion() && Leveling.canEvolve(companion())[0] ? "!" : 0, go: () => openSanctuary("vivero") },
     { id: "travel", em: "🧭", name: "Viajar", go: () => openTravel() },
   ];
-  const R = Math.round(Math.min(170, (innerWidth - 100) / 2, (innerHeight - 270) / 2));
+  const R = Math.round(Math.min(170, (innerWidth - 130) / 2, (innerHeight - 270) / 2));
   openModal(`<div class="radial" style="--R:${R}px">
       <button class="radial-core" id="rc">${n.rewards ? `<span class="em">🎁</span><b>Reclamar</b><small>${n.rewards} recompensa${n.rewards > 1 ? "s" : ""}</small>` : `<span class="em">🌳</span><b>Gran Nexo</b><small>Toca una rama</small>`}</button>
       ${items.map((it, i) => { const a = (i / items.length) * Math.PI * 2 - Math.PI / 2; return `<button class="radial-item" data-go="${it.id}" style="--x:${Math.cos(a).toFixed(3)};--y:${Math.sin(a).toFixed(3)}"><span class="em">${it.em}</span><span class="lb">${it.name}</span>${it.badge ? `<i class="badge">${it.badge}</i>` : ""}</button>`; }).join("")}
@@ -524,7 +524,7 @@ function regionBands() {
 function openAdventure() {
   if (!starterPet()) return toast("🥚", "Elige primero tu huevo junto al Gran Nexo.");
   const act = CFG.Encounters.Acts.ActoI, vertical = innerWidth < 640;
-  const pos = (id) => { const [x, y] = CFG.Encounters.ById[id].mapPos; return vertical ? { left: 12 + y * 76, top: x * 100 } : { left: x * 100, top: 12 + y * 76 }; };
+  const pos = (id) => { const [x, y] = CFG.Encounters.ById[id].mapPos; return vertical ? { left: 9 + y * 64, top: x * 100 } : { left: x * 100, top: 12 + y * 76 }; };
   const total = CFG.Encounters.Order.reduce((a, id) => a + countStars(P.story.stars[id]), 0);
   const repeatsLeft = CFG.Encounters.Repeat.DailyRewardedRepeats - (P.story.repeatDay === Math.floor(serverNow() / 86400) ? P.story.repeatCount : 0);
   const next = nextStage();

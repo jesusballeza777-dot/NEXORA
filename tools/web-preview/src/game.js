@@ -1456,9 +1456,10 @@ function portrait(speciesId, form, silhouette = false) {
   const key = `${speciesId}|${form}|${silhouette}`;
   if (portraitCache.has(key)) return portraitCache.get(key);
   const c = buildCreature(speciesId, form); c.rotation.y = -0.55; pScene.add(c);
+  c.updateMatrixWorld(true); // Box3 usa las matrices de los hijos: sin esto el encuadre recorta
   const box = new THREE.Box3().setFromObject(c), size = box.getSize(new THREE.Vector3()), center = box.getCenter(new THREE.Vector3());
   // Encuadre que cabe a lo alto (cántaros, garzas) sin achicar a los bajos
-  const d = Math.max(size.y * 1.95, Math.max(size.x, size.z) * 1.45);
+  const d = Math.max(size.y * 2.0, Math.hypot(size.x, size.z) * 1.45);
   pCam.position.set(center.x + d * 0.25, center.y + d * 0.18, center.z + d); pCam.lookAt(center);
   portraitR.render(pScene, pCam);
   const url = portraitR.domElement.toDataURL("image/png");
@@ -1507,12 +1508,12 @@ function refreshUI() {
   $("#coins").textContent = fmt(coins()); $("#gems").textContent = fmt(P.currencies.Gemas ?? 0);
   const info = stepInfo(step());
   const ob = $("#objective");
-  ob.classList.toggle("hidden", introActive || !!battle);
+  ob.classList.toggle("hidden", introActive || !!battle || cine);
   ob.querySelector(".title").textContent = tutorialDone() ? "Explora el Valle Copal" : info.objective;
   ob.querySelector(".hint").textContent = tutorialDone() ? nextGoalHint() : info.hint;
   const pet = companion();
   const card = $("#companion");
-  card.classList.toggle("hidden", !pet || !P.firsts.hatch_completed || !!battle);
+  card.classList.toggle("hidden", !pet || !P.firsts.hatch_completed || !!battle || cine);
   if (pet) {
     const pct = pet.level >= 50 ? 100 : (pet.xp / Leveling.xpToNext(pet.level)) * 100;
     card.innerHTML = `<img src="${portrait(pet.speciesId, pet.form)}" alt=""><div style="min-width:120px"><div class="nm">${esc(petName(pet))}</div><div class="lv">Nv ${pet.level} · ${pet.form}</div><div class="bar" style="margin:4px 0"><i style="width:${pct}%"></i></div><div class="hearts">${hearts(pet)}</div></div>`;

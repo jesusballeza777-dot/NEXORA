@@ -231,7 +231,8 @@ body.modal-on #toasts { top: auto; bottom: max(12px, env(safe-area-inset-bottom)
 .band { position: absolute; }
 .band::after { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(135deg, rgba(255,255,255,.05) 0 2px, transparent 2px 14px); }
 .band-name { position: absolute; left: 10px; bottom: 8px; right: 8px; z-index: 1; text-shadow: 0 2px 0 rgba(0,0,0,.45); }
-.act-map.vertical .band-name { bottom: auto; top: 8px; }
+.act-map.vertical .band-name { bottom: auto; top: 10px; left: auto; right: 8px; width: 36%; text-align: right; }
+.act-map.vertical .band-name small { font-size: 13px; }
 .band-name b { display: block; font-family: var(--font-title); font-size: 16px; }
 .band-name small { display: block; font-size: 13px; font-weight: 800; opacity: .9; }
 .paths { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; }
@@ -297,6 +298,16 @@ body.modal-on #toasts { top: auto; bottom: max(12px, env(safe-area-inset-bottom)
 .codex-card.locked { background: rgba(255,255,255,.05); color: var(--muted); box-shadow: none; border: 1px dashed rgba(232,168,72,.35); }
 .codex-card.locked .sym { font-family: var(--font-title); color: rgba(255,255,255,.2); }
 
+@media (max-width: 520px) {
+  /* El aviso de interacción y la tarjeta del acompañante no se pisan */
+  #companion { bottom: calc(max(10px, env(safe-area-inset-bottom)) + 236px); }
+  /* En vertical los monstruos quedan a media pantalla: el rótulo del combate sube */
+  #battle .caption { top: 31%; font-size: 16px; }
+  .move { min-height: 56px; padding: 6px 10px; }
+  .chips { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
+  .chip-btn { flex: none; }
+  #battle .me { bottom: calc(max(10px, env(safe-area-inset-bottom)) + 206px); }
+}
 @media (max-width: 640px) {
   .pods { grid-template-columns: repeat(2, 1fr); }
   .pod { min-height: 220px; }

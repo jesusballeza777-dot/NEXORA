@@ -417,7 +417,8 @@ body.modal-on #toasts { top: auto; bottom: max(12px, env(safe-area-inset-bottom)
 .band { position: absolute; }
 .band::after { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(135deg, rgba(255,255,255,.05) 0 2px, transparent 2px 14px); }
 .band-name { position: absolute; left: 10px; bottom: 8px; right: 8px; z-index: 1; text-shadow: 0 2px 0 rgba(0,0,0,.45); }
-.act-map.vertical .band-name { bottom: auto; top: 8px; }
+.act-map.vertical .band-name { bottom: auto; top: 10px; left: auto; right: 8px; width: 36%; text-align: right; }
+.act-map.vertical .band-name small { font-size: 13px; }
 .band-name b { display: block; font-family: var(--font-title); font-size: 16px; }
 .band-name small { display: block; font-size: 13px; font-weight: 800; opacity: .9; }
 .paths { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; }
@@ -483,6 +484,16 @@ body.modal-on #toasts { top: auto; bottom: max(12px, env(safe-area-inset-bottom)
 .codex-card.locked { background: rgba(255,255,255,.05); color: var(--muted); box-shadow: none; border: 1px dashed rgba(232,168,72,.35); }
 .codex-card.locked .sym { font-family: var(--font-title); color: rgba(255,255,255,.2); }
 
+@media (max-width: 520px) {
+  /* El aviso de interacción y la tarjeta del acompañante no se pisan */
+  #companion { bottom: calc(max(10px, env(safe-area-inset-bottom)) + 236px); }
+  /* En vertical los monstruos quedan a media pantalla: el rótulo del combate sube */
+  #battle .caption { top: 31%; font-size: 16px; }
+  .move { min-height: 56px; padding: 6px 10px; }
+  .chips { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
+  .chip-btn { flex: none; }
+  #battle .me { bottom: calc(max(10px, env(safe-area-inset-bottom)) + 206px); }
+}
 @media (max-width: 640px) {
   .pods { grid-template-columns: repeat(2, 1fr); }
   .pod { min-height: 220px; }
@@ -3984,9 +3995,10 @@ function portrait(speciesId, form, silhouette = false) {
   const key = `${speciesId}|${form}|${silhouette}`;
   if (portraitCache.has(key)) return portraitCache.get(key);
   const c = buildCreature(speciesId, form); c.rotation.y = -0.55; pScene.add(c);
+  c.updateMatrixWorld(true); // Box3 usa las matrices de los hijos: sin esto el encuadre recorta
   const box = new THREE.Box3().setFromObject(c), size = box.getSize(new THREE.Vector3()), center = box.getCenter(new THREE.Vector3());
   // Encuadre que cabe a lo alto (cántaros, garzas) sin achicar a los bajos
-  const d = Math.max(size.y * 1.95, Math.max(size.x, size.z) * 1.45);
+  const d = Math.max(size.y * 2.0, Math.hypot(size.x, size.z) * 1.45);
   pCam.position.set(center.x + d * 0.25, center.y + d * 0.18, center.z + d); pCam.lookAt(center);
   portraitR.render(pScene, pCam);
   const url = portraitR.domElement.toDataURL("image/png");
@@ -4035,12 +4047,12 @@ function refreshUI() {
   $("#coins").textContent = fmt(coins()); $("#gems").textContent = fmt(P.currencies.Gemas ?? 0);
   const info = stepInfo(step());
   const ob = $("#objective");
-  ob.classList.toggle("hidden", introActive || !!battle);
+  ob.classList.toggle("hidden", introActive || !!battle || cine);
   ob.querySelector(".title").textContent = tutorialDone() ? "Explora el Valle Copal" : info.objective;
   ob.querySelector(".hint").textContent = tutorialDone() ? nextGoalHint() : info.hint;
   const pet = companion();
   const card = $("#companion");
-  card.classList.toggle("hidden", !pet || !P.firsts.hatch_completed || !!battle);
+  card.classList.toggle("hidden", !pet || !P.firsts.hatch_completed || !!battle || cine);
   if (pet) {
     const pct = pet.level >= 50 ? 100 : (pet.xp / Leveling.xpToNext(pet.level)) * 100;
     card.innerHTML = `<img src="${portrait(pet.speciesId, pet.form)}" alt=""><div style="min-width:120px"><div class="nm">${esc(petName(pet))}</div><div class="lv">Nv ${pet.level} · ${pet.form}</div><div class="bar" style="margin:4px 0"><i style="width:${pct}%"></i></div><div class="hearts">${hearts(pet)}</div></div>`;
@@ -4349,17 +4361,21 @@ async function startBattle(encId) {
   battle = {
     state, encId, enc, participants, center, spot: arena.spot, busy: false, boss, byUid: {}, models: [], roots: {}, light: 1, lightTarget: 1,
     prevStars: (P.story.stars[encId] || [false, false, false]).slice(),
-    home: { me: center.clone().add(V(-4.5, 0, 2.5)), foe: center.clone().add(boss ? V(7, 0, -5) : V(4.5, 0, -2)) },
   };
+  // Encuadre: en pantallas verticales (móvil) los rivales se escalonan en profundidad
+  const tall = innerWidth < innerHeight;
+  battle.home = tall
+    ? { me: center.clone().add(boss ? V(-2.5, 0, 3) : V(-2, 0, 2.5)), foe: center.clone().add(boss ? V(3, 0, -5) : V(2.2, 0, -3)) }
+    : { me: center.clone().add(V(-4.5, 0, 2.5)), foe: center.clone().add(boss ? V(7, 0, -5) : V(4.5, 0, -2)) };
   // El Opaco del marcador (si lo hay) se aparta mientras dura el combate de otra etapa
   if (arena.spot && arena.spot.creature && !enc.worldMarker) arena.spot.creature.visible = false;
   if (companionModel) companionModel.visible = false; // vuelve a verse si entra al combate
   placeActive(1); const foeModel = placeActive(2);
   player.position.copy(center.clone().add(V(-9, 0, 6)));
   heading = Math.atan2(battle.home.foe.x - player.position.x, battle.home.foe.z - player.position.z);
-  cineCam = boss
-    ? { pos: center.clone().add(V(-3, isTouch ? 15 : 11, isTouch ? 31 : 24)), look: center.clone().add(V(1, 5, -1)) }
-    : { pos: center.clone().add(V(-1, isTouch ? 9 : 6.5, isTouch ? 17 : 13)), look: center.clone().add(V(0, 1.6, 0)) };
+  cineCam = tall
+    ? (boss ? { pos: center.clone().add(V(0, 13, 34)), look: center.clone().add(V(0, 2, -3)) } : { pos: center.clone().add(V(0, 13, 30)), look: center.clone().add(V(0, 0, -1)) })
+    : (boss ? { pos: center.clone().add(V(-3, 11, 24)), look: center.clone().add(V(1, 5, -1)) } : { pos: center.clone().add(V(-1, 6.5, 13)), look: center.clone().add(V(0, 1.6, 0)) });
   // Corte de cámara al escenario (el jefe entra con un barrido desde lo alto)
   camPos.copy(boss ? center.clone().add(V(-8, 34, 56)) : cineCam.pos); camTarget.copy(cineCam.look);
   if (arena.spot) arena.spot.label.el.innerHTML = "";
@@ -4608,7 +4624,7 @@ function openNexoMenu() {
     { id: "team", em: "🐾", name: "Monstruos", badge: companion() && Leveling.canEvolve(companion())[0] ? "!" : 0, go: () => openSanctuary("vivero") },
     { id: "travel", em: "🧭", name: "Viajar", go: () => openTravel() },
   ];
-  const R = Math.round(Math.min(170, (innerWidth - 100) / 2, (innerHeight - 270) / 2));
+  const R = Math.round(Math.min(170, (innerWidth - 130) / 2, (innerHeight - 270) / 2));
   openModal(`<div class="radial" style="--R:${R}px">
       <button class="radial-core" id="rc">${n.rewards ? `<span class="em">🎁</span><b>Reclamar</b><small>${n.rewards} recompensa${n.rewards > 1 ? "s" : ""}</small>` : `<span class="em">🌳</span><b>Gran Nexo</b><small>Toca una rama</small>`}</button>
       ${items.map((it, i) => { const a = (i / items.length) * Math.PI * 2 - Math.PI / 2; return `<button class="radial-item" data-go="${it.id}" style="--x:${Math.cos(a).toFixed(3)};--y:${Math.sin(a).toFixed(3)}"><span class="em">${it.em}</span><span class="lb">${it.name}</span>${it.badge ? `<i class="badge">${it.badge}</i>` : ""}</button>`; }).join("")}
@@ -5086,7 +5102,7 @@ function regionBands() {
 function openAdventure() {
   if (!starterPet()) return toast("🥚", "Elige primero tu huevo junto al Gran Nexo.");
   const act = CFG.Encounters.Acts.ActoI, vertical = innerWidth < 640;
-  const pos = (id) => { const [x, y] = CFG.Encounters.ById[id].mapPos; return vertical ? { left: 12 + y * 76, top: x * 100 } : { left: x * 100, top: 12 + y * 76 }; };
+  const pos = (id) => { const [x, y] = CFG.Encounters.ById[id].mapPos; return vertical ? { left: 9 + y * 64, top: x * 100 } : { left: x * 100, top: 12 + y * 76 }; };
   const total = CFG.Encounters.Order.reduce((a, id) => a + countStars(P.story.stars[id]), 0);
   const repeatsLeft = CFG.Encounters.Repeat.DailyRewardedRepeats - (P.story.repeatDay === Math.floor(serverNow() / 86400) ? P.story.repeatCount : 0);
   const next = nextStage();
@@ -5279,8 +5295,9 @@ window.__nexora = {
   boostTeam(level = 22, form = "Tallado", ids = null) { for (const id of ids || (P.team.length ? P.team : [P.companionPetId])) { const p = P.pets[id]; if (p) { p.level = level; p.xp = 0; if (form) p.form = form; } } save(); refreshUI(); },
   devPet(speciesId) { const r = PetRules.create(P, speciesId, { kind: "Dev", at: serverNow() }); save(); refreshUI(); return r.data && r.data.petId; },
   simulateStage, claimAllPending, setAnim: (k) => { ANIM = k; }, serverNow,
-  get debug() { return { scene, camera, companionModel, camPos, camTarget, buildCreature, renderer }; },
+  get debug() { return { scene, camera, companionModel, camPos, camTarget, buildCreature, renderer, THREE }; },
   setCam(p, l) { cine = true; cineCam = { pos: V(...p), look: V(...l) }; camPos.copy(cineCam.pos); camTarget.copy(cineCam.look); },
+  freeCam() { cine = false; cineCam = null; refreshUI(); },
   // Calidad de render para pruebas en GPU por software: "low" (sin postproceso, ½ resolución) o "high"
   setQuality(q) { qualityChecked = true; usePost = q !== "low"; pixelRatio = q === "low" ? 0.5 : Math.min(devicePixelRatio, isTouch ? 1.5 : 1.75); renderer.setPixelRatio(pixelRatio); renderer.setSize(innerWidth, innerHeight); composer.setPixelRatio(pixelRatio); composer.setSize(innerWidth, innerHeight); },
 };
