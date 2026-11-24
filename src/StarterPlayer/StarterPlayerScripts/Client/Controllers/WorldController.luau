@@ -6,13 +6,15 @@
 -- * Monstruos del hábitat de cada lote, Opacos en la Linde y huevos que laten.
 -- * Activación de ProximityPrompts según el paso del onboarding.
 -- * Llegada al Lote Hogar (el servidor valida la proximidad).
--- Rendimiento móvil: solo se animan criaturas a menos de 140 studs de la cámara.
+-- Rendimiento móvil (Genesis §9): LOD por distancia a la cámara. 0–60 completo; 60–140
+-- sin partículas y con animación a la mitad; más de 140 el modelo se oculta y el
+-- acompañante solo avanza su seguimiento 4 veces por segundo, sin rayos.
+-- Seguimiento: Shared/Domain/FollowSteering (puro). Animación: Client/Animation.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
-local TweenService = game:GetService("TweenService")
 local ProximityPromptService = game:GetService("ProximityPromptService")
 local Workspace = game:GetService("Workspace")
 
@@ -20,11 +22,18 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local World = require(Shared.Config:WaitForChild("World"))
 local Onboarding = require(Shared.Config:WaitForChild("Onboarding"))
 local Encounters = require(Shared.Config:WaitForChild("Encounters"))
+local CreatureMotion = require(Shared.Config:WaitForChild("CreatureMotion"))
+local FollowSteering = require(Shared.Domain:WaitForChild("FollowSteering"))
 
 local Client = script.Parent.Parent
 local CreatureBuilder = require(Client.Creatures.CreatureBuilder)
 local Net = require(Client.Net)
 local State = require(Client.State)
+local CreatureAnimator = require(Client.Animation.CreatureAnimator)
+local MotionStateMachine = require(Client.Animation.MotionStateMachine)
+local AuraController = require(Client.VFX.AuraController)
+local VFXPlan = require(Client.VFX.VFXPlan)
+local SoundController = require(Client.Audio.SoundController)
 
 type Creature = CreatureBuilder.Creature
 
@@ -33,9 +42,12 @@ local WorldController = {}
 local player = Players.LocalPlayer
 local valle: Folder
 local publicFolder: Folder
-local companions: { [number]: { creature: Creature, key: string, pos: Vector3, yaw: number } } = {}
-local habitatPets: { [string]: Creature } = {}
-local opacos: { [string]: { creature: Creature, key: string } } = {}
+-- Cada criatura del mundo lleva su animador, su aura y su nivel de detalle
+type Live = { creature: Creature, anim: any, lod: string, shown: boolean }
+local companions: { [number]: any } = {}
+local habitatPets: { [string]: Live } = {}
+local opacos: { [string]: any } = {}
+local Follow = CreatureMotion.Follow
 local suspended = false -- durante el combate el controlador de batalla toma el escenario
 local handlers: { [string]: (any) -> () } = {}
 local rayParams = RaycastParams.new()
@@ -110,12 +122,7 @@ function WorldController.init(h: { [string]: (any) -> () })
 			onPrompt(prompt)
 		end
 	end)
-	local heart = valle:WaitForChild("GranNexo"):WaitForChild("NexoHeart") :: BasePart
-	TweenService:Create(
-		heart,
-		TweenInfo.new(1.3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
-		{ Size = heart.Size * 1.08 }
-	):Play()
+	-- El latido del corazón del Nexo lo anima AmbientLifeController (etiqueta AmbientHeart)
 end
 
 local function myLot(): Model?
@@ -181,26 +188,39 @@ function WorldController.syncOpacos(view: any)
 				if suspended then
 					c.model.Parent = nil
 				end
-				opacos[id] = { creature = c, key = want }
+				AuraController.attach(c)
+				opacos[id] = { creature = c, key = want, anim = CreatureAnimator.new(c), lod = "Full", shown = true }
 			end
 		end
+	end
+end
+
+-- Muestra u oculta el modelo según el combate (suspended) y el nivel de detalle
+local function show(live: any, visible: boolean)
+	local want = visible and not suspended
+	if live.shown ~= want then
+		live.shown = want
+		live.creature.model.Parent = if want then Workspace else nil
 	end
 end
 
 function WorldController.suspend(on: boolean)
 	suspended = on
 	for _, entry in pairs(companions) do
-		entry.creature.model.Parent = if on then nil else Workspace
+		show(entry, entry.lod ~= "None")
 	end
 	for _, o in pairs(opacos) do
-		o.creature.model.Parent = if on then nil else Workspace
+		show(o, o.lod ~= "None")
 	end
 end
 
 function WorldController.react(userId: number?)
 	local entry = companions[userId or player.UserId]
 	if entry then
-		entry.creature.react = 0.9
+		entry.anim:trigger("Happy") -- Kuachi a veces se hace el muerto al jugar
+		local s = entry.steer
+		SoundController.shared()
+			:play("SFX_CR_" .. entry.creature.speciesId .. "_Happy", { at = Vector3.new(s.x, entry.y + 1, s.z) })
 	end
 end
 
@@ -226,8 +246,80 @@ local function checkHomeArrival(now: number)
 	end
 end
 
-local function updateCompanions(t: number, dt: number)
+-- Rayo horizontal contra paredes (las rampas y el suelo no cuentan como obstáculo)
+local function wallRay(y: number): FollowSteering.Raycast
+	return function(x: number, z: number, dx: number, dz: number, length: number): number?
+		local hit = Workspace:Raycast(Vector3.new(x, y + 1.2, z), Vector3.new(dx * length, 0, dz * length), rayParams)
+		if hit and math.abs(hit.Normal.Y) < 0.6 then
+			return hit.Distance
+		end
+		return nil
+	end
+end
+
+local function cameraPos(): Vector3?
 	local camera = Workspace.CurrentCamera
+	return if camera then camera.CFrame.Position else nil
+end
+
+local function lodFor(live: any, pos: Vector3, cam: Vector3?): string
+	live.lod = if cam then VFXPlan.lod((pos - cam).Magnitude, live.lod) else "Full"
+	return live.lod
+end
+
+local function newCompanion(speciesId: string, form: string, root: BasePart): any
+	local c = CreatureBuilder.build(speciesId, form)
+	if suspended then
+		c.model.Parent = nil
+	end
+	AuraController.attach(c)
+	local look = root.CFrame.LookVector
+	local profile = MotionStateMachine.profile(speciesId)
+	local start = root.Position - look * Follow.back
+	return {
+		creature = c,
+		key = speciesId .. form,
+		anim = CreatureAnimator.new(c),
+		steer = FollowSteering.new(start.X, start.Z, math.atan2(look.X, look.Z), profile.inertia),
+		y = root.Position.Y,
+		fx = look.X,
+		fz = look.Z,
+		lod = "Full",
+		shown = not suspended,
+		farAcc = 0,
+		ownerAir = false,
+		pause = profile.pause,
+		pauseIn = if profile.pause then profile.pause.every[2] else 0,
+		pauseLeft = 0,
+		rng = Random.new(),
+	}
+end
+
+-- Pausas de paseo (Xolumi): se para un momento si no se ha quedado atrás
+local function pausing(r: any, dt: number, ownerDistance: number): boolean
+	local pz = r.pause
+	if not pz then
+		return false
+	end
+	if r.pauseLeft > 0 then
+		r.pauseLeft -= dt
+		if ownerDistance > Follow.maxDistance + 3 then
+			r.pauseLeft = 0
+		end
+		return r.pauseLeft > 0
+	end
+	if r.steer.moving then
+		r.pauseIn -= dt
+		if r.pauseIn <= 0 then
+			r.pauseIn = r.rng:NextNumber(pz.every[1], pz.every[2])
+			r.pauseLeft = r.rng:NextNumber(pz.duration[1], pz.duration[2])
+		end
+	end
+	return false
+end
+
+local function updateCompanions(dt: number)
+	local cam = cameraPos()
 	local seen: { [number]: boolean } = {}
 	for _, entry in ipairs(publicFolder:GetChildren()) do
 		local userId = tonumber(entry.Name)
@@ -243,32 +335,54 @@ local function updateCompanions(t: number, dt: number)
 				if rec then
 					rec.creature:destroy()
 				end
-				local c = CreatureBuilder.build(data.speciesId, data.form)
-				if suspended then
-					c.model.Parent = nil
-				end
-				rec = { creature = c, key = key, pos = root.Position, yaw = 0 }
+				rec = newCompanion(data.speciesId, data.form, root)
 				companions[userId] = rec
 			end
 			local r = rec :: any
-			-- Seguimiento: a un lado y detrás del dueño, con suavizado y sin tirones
 			local look = root.CFrame.LookVector
-			local right = root.CFrame.RightVector
-			local target = root.Position - look * 4 + right * 3.2
-			local flat = Vector3.new(target.X - r.pos.X, 0, target.Z - r.pos.Z)
-			local dist = flat.Magnitude
-			if dist > 60 then
-				r.pos = target -- se perdió la referencia: reaparece junto al jugador
-			elseif dist > 1.2 then
-				local step = math.min(dist, (6 + dist * 1.6) * dt)
-				r.pos += flat.Unit * step
-				-- La criatura mira a su +Z local: yaw = atan2(x, z) apunta hacia donde camina
-				r.yaw = math.atan2(flat.X, flat.Z)
+			local flat = math.sqrt(look.X * look.X + look.Z * look.Z)
+			if flat > 0.1 then
+				r.fx, r.fz = look.X / flat, look.Z / flat
 			end
-			local y = groundY(r.pos)
-			r.pos = Vector3.new(r.pos.X, y, r.pos.Z)
-			if not suspended and camera and (camera.CFrame.Position - r.pos).Magnitude < 140 then
-				CreatureBuilder.update(r.creature, CFrame.new(r.pos) * CFrame.Angles(0, r.yaw, 0), t, dt, dist > 1.2)
+			local rp = root.Position
+			local ownerState = { x = rp.X, z = rp.Z, fx = r.fx, fz = r.fz }
+			local s = r.steer
+			local pos = Vector3.new(s.x, r.y, s.z)
+			if lodFor(r, pos, cam) == "None" then
+				-- Lejos de la cámara: oculto y con pasos baratos (sin rayos ni animación)
+				show(r, false)
+				r.farAcc += dt
+				if r.farAcc >= Follow.farInterval then
+					FollowSteering.step(s, ownerState, r.farAcc, Follow, nil)
+					r.farAcc = 0
+					r.y = rp.Y - 2.5
+				end
+			else
+				show(r, true)
+				local ownerDistance = math.sqrt((s.x - rp.X) ^ 2 + (s.z - rp.Z) ^ 2)
+				if not pausing(r, dt, ownerDistance) then
+					FollowSteering.step(s, ownerState, dt, Follow, if r.lod == "Full" then wallRay(r.y) else nil)
+				else
+					s.speed, s.moving, s.yawRate = 0, false, 0
+				end
+				local gy = groundY(Vector3.new(s.x, rp.Y, s.z))
+				r.y = gy
+				-- Si el dueño salta, el acompañante da su saltito
+				local air = root.AssemblyLinearVelocity.Y > 8
+				if air and not r.ownerAir then
+					r.anim:jump()
+				end
+				r.ownerAir = air
+				-- En reposo mira a su dueño
+				r.anim:setLookTarget(if s.moving then nil else rp + Vector3.new(0, 1, 0))
+				if not suspended then
+					r.anim:update(
+						dt,
+						CFrame.new(s.x, gy, s.z) * CFrame.Angles(0, s.yaw, 0),
+						{ speed = s.speed, yawRate = s.yawRate, groundY = gy },
+						r.lod
+					)
+				end
 			end
 		end
 	end
@@ -280,7 +394,8 @@ local function updateCompanions(t: number, dt: number)
 	end
 end
 
-local function updateHabitats(t: number, dt: number)
+local function updateHabitats(dt: number)
+	local cam = cameraPos()
 	local wanted: { [string]: boolean } = {}
 	for _, entry in ipairs(publicFolder:GetChildren()) do
 		local lotIndex = entry:GetAttribute("LotIndex")
@@ -294,44 +409,49 @@ local function updateHabitats(t: number, dt: number)
 				local walking = companion and companion.speciesId == pet.speciesId and companion.form == pet.form
 				if not walking then
 					wanted[key] = true
-					local c = habitatPets[key]
-					if not c then
-						c = CreatureBuilder.build(pet.speciesId, pet.form)
-						habitatPets[key] = c
+					local live = habitatPets[key]
+					if not live then
+						local c = CreatureBuilder.build(pet.speciesId, pet.form)
+						AuraController.attach(c)
+						live = { creature = c, anim = CreatureAnimator.new(c), lod = "Full", shown = true }
+						habitatPets[key] = live
 					end
+					local l = live :: Live
 					local off = World.Lots.slotOffsets[tonumber(slotKey) or 1]
-					CreatureBuilder.update(
-						c :: Creature,
-						CFrame.new(center + v3(off) + Vector3.new(0, 1.9, 0)) * CFrame.Angles(0, math.pi, 0),
-						t,
-						dt,
-						false
-					)
+					local pos = center + v3(off) + Vector3.new(0, 1.9, 0)
+					local lod = lodFor(l, pos, cam)
+					show(l, lod ~= "None")
+					l.anim:update(dt, CFrame.new(pos) * CFrame.Angles(0, math.pi, 0), { speed = 0 }, lod)
 				end
 			end
 		end
 	end
-	for key, c in pairs(habitatPets) do
+	for key, live in pairs(habitatPets) do
 		if not wanted[key] then
-			c:destroy()
+			live.creature:destroy()
 			habitatPets[key] = nil
 		end
 	end
 end
 
-local function updateOpacos(t: number, dt: number)
+local function updateOpacos(dt: number)
+	if suspended then
+		return
+	end
+	local cam = cameraPos()
+	local character = player.Character
+	local me = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 	for id, o in pairs(opacos) do
 		local marker = World.Encounters[Encounters.ById[id].worldMarker]
 		local pos = v3(marker.position)
-		if not suspended then
-			CreatureBuilder.update(
-				o.creature,
-				CFrame.new(pos + Vector3.new(0, groundY(pos) - pos.Y, 0)) * CFrame.Angles(0, math.pi / 2, 0),
-				t,
-				dt,
-				false
-			)
-		end
+		pos = Vector3.new(pos.X, groundY(pos), pos.Z)
+		local lod = lodFor(o, pos, cam)
+		show(o, lod ~= "None")
+		-- El Opaco se pone en guardia si te acercas (Teselo se resguarda)
+		local near = me ~= nil and (me.Position - pos).Magnitude < 16
+		o.anim:hold(if near and o.creature.opaco > 0.5 then "Warn" else nil, o.anim.profile.defend)
+		o.anim:setLookTarget(if near and me then me.Position else nil)
+		o.anim:update(dt, CFrame.new(pos) * CFrame.Angles(0, math.pi / 2, 0), { speed = 0 }, lod)
 	end
 end
 
@@ -359,9 +479,9 @@ function WorldController.start()
 	local acc = 0
 	RunService.RenderStepped:Connect(function(dt)
 		t += dt
-		updateCompanions(t, dt)
-		updateHabitats(t, dt)
-		updateOpacos(t, dt)
+		updateCompanions(dt)
+		updateHabitats(dt)
+		updateOpacos(dt)
 		updateEggs(t)
 		acc += dt
 		if acc > 0.4 then

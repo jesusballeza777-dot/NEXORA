@@ -71,6 +71,9 @@ function CreatureBuilder.build(speciesId: string, form: string, opts: { opaco: b
 	model:SetAttribute("AssetStatus", vis.assetStatus)
 	local parts: { PartRec } = {}
 	local counter = 0
+	-- Hueso lógico de cada pieza (atributo "Bone" y nombre), con los nombres de los rigs de
+	-- assets/Creatures/*/asset.json: así Client/Animation anima igual el blockout y la malla.
+	local bone = "spine"
 
 	local function add(
 		shape: string,
@@ -82,6 +85,15 @@ function CreatureBuilder.build(speciesId: string, form: string, opts: { opaco: b
 	): BasePart
 		counter += 1
 		local p = newPart(model, shape, size, color, material)
+		local o = offset.Position
+		local side = if o.X > 0 then "_L" else "_R" -- +X es la izquierda (la criatura mira a +Z)
+		local name = if kind == "Leg"
+			then (if o.Z > 0.2 then "legF" elseif o.Z < -0.05 then "legB" else "legM") .. side
+			elseif kind == "Gill" then (if vis.archetype == "Axolotl" then "gill" else "wing") .. side
+			elseif kind == "Tail" then "tail1"
+			else bone
+		p.Name = name
+		p:SetAttribute("Bone", name)
 		table.insert(parts, { part = p, offset = offset, kind = kind or "Body", index = counter, baseColor = color })
 		return p
 	end
@@ -178,6 +190,7 @@ function CreatureBuilder.build(speciesId: string, form: string, opts: { opaco: b
 			body
 		)
 		E(Vector3.new(1.2, 0.9, 1.3), Vector3.new(0, if T then 0.75 else 0.85, 0.4), glow, "Glow", Enum.Material.Neon)
+		bone = "head"
 		local head = Vector3.new(0, if T then 1.45 else 1.75, if T then 1.7 else 1.25)
 		E(if T then Vector3.new(1.2, 1.0, 1.4) else Vector3.new(1.3, 1.3, 1.3), head, body)
 		E(Vector3.new(0.5, 0.45, if T then 1.6 else 1.2), head + Vector3.new(0, -0.15, if T then 0.95 else 0.8), belly)
@@ -233,6 +246,7 @@ function CreatureBuilder.build(speciesId: string, form: string, opts: { opaco: b
 			nil,
 			Enum.Material.Glass
 		)
+		bone = "head"
 		local head = Vector3.new(0, (if T then 1.55 else 1.05) + lift * 0.5, if T then 1.6 else 1.35)
 		E(if T then Vector3.new(2.1, 1.3, 1.7) else Vector3.new(2.3, 1.45, 1.7), head, body, nil, Enum.Material.Glass)
 		eyes(head + Vector3.new(0, 0.25, 0.62), if T then 0.55 else 0.6, if T then 0.16 else 0.2, 0.07)
@@ -263,6 +277,7 @@ function CreatureBuilder.build(speciesId: string, form: string, opts: { opaco: b
 			E(Vector3.new(0.44, 0.76, 0.44), Vector3.new(s * 0.85, 0.4, z), body, "Leg")
 		end
 		if T then
+			bone = "spine"
 			for k = 0, 4 do
 				add(
 					"Cylinder",
@@ -275,6 +290,7 @@ function CreatureBuilder.build(speciesId: string, form: string, opts: { opaco: b
 			end
 		end
 	elseif a == "Tortoise" then
+		bone = "body"
 		if not T then
 			E(Vector3.new(2.5, 2.2, 2.9), Vector3.new(0, 0.9, 0), body)
 			for i = 0, 11 do
@@ -296,15 +312,18 @@ function CreatureBuilder.build(speciesId: string, form: string, opts: { opaco: b
 				CFrame.new(0, 0.75, 0) * CFrame.Angles(0, 0, math.rad(90)),
 				body
 			)
+			bone = "ringA"
 			add(
 				"Cylinder",
 				Vector3.new(0.55, 2.2, 2.2),
 				CFrame.new(0, 1.25, 0) * CFrame.Angles(0, 0, math.rad(90)),
 				belly
 			)
+			bone = "ringB"
 			add("Cylinder", Vector3.new(0.5, 1.5, 1.5), CFrame.new(0, 1.7, 0) * CFrame.Angles(0, 0, math.rad(90)), body)
 			-- Disco de cielo sobre las terrazas: noche con estrellas y borde de oro,
 			-- inclinado hacia el frente para que se lea desde la cámara del jugador.
+			bone = "skyDisc"
 			local disc = CFrame.new(0, 2.45, 0.1) * CFrame.Angles(0.38, 0, 0) * CFrame.Angles(0, 0, math.rad(90))
 			add("Cylinder", Vector3.new(0.1, 2.3, 2.3), disc, Color3.fromRGB(226, 182, 80), "Body", Enum.Material.Metal)
 			add(
@@ -346,11 +365,13 @@ function CreatureBuilder.build(speciesId: string, form: string, opts: { opaco: b
 				"Leg"
 			)
 		end
+		bone = "head"
 		local head = Vector3.new(0, if T then 1.05 else 0.9, if T then 1.85 else 1.6)
 		E(Vector3.new(1.0, 0.9, 1.1), head, belly)
 		eyes(head + Vector3.new(0, 0.12, 0.38), 0.22, if T then 0.13 else 0.16, 0.07)
 		smile(head + Vector3.new(0, -0.18, 0.5), 0.18)
 	elseif a == "Heron" then
+		bone = "root"
 		-- Ser Sagrado (Copalia): garza alta; patas de raíz que se abren en el suelo,
 		-- cuello en S, alas de hoja con faroles colgantes.
 		local bark = Color3.fromRGB(96, 70, 52)
@@ -373,13 +394,16 @@ function CreatureBuilder.build(speciesId: string, form: string, opts: { opaco: b
 				)
 			end
 		end
+		bone = "spine"
 		E(Vector3.new(1.6, 1.4, 2.4), Vector3.new(0, 3.1, -0.2), body)
 		E(Vector3.new(1.2, 0.9, 1.6), Vector3.new(0, 2.85, 0.05), belly)
+		bone = "neck"
 		local neck =
 			{ Vector3.new(0, 3.7, 0.8), Vector3.new(0, 4.3, 1.0), Vector3.new(0, 4.9, 0.8), Vector3.new(0, 5.4, 1.05) }
 		for _, pos in ipairs(neck) do
 			E(Vector3.new(0.5, 0.75, 0.5), pos, body)
 		end
+		bone = "head"
 		local head = Vector3.new(0, 5.75, 1.3)
 		E(Vector3.new(0.7, 0.6, 0.85), head, belly)
 		add(
@@ -399,6 +423,7 @@ function CreatureBuilder.build(speciesId: string, form: string, opts: { opaco: b
 			)
 		end
 		-- Alas de hoja con faroles
+		bone = "spine"
 		for _, sx in ipairs({ -1, 1 }) do
 			for k = 0, 2 do
 				add(
@@ -476,6 +501,7 @@ function CreatureBuilder.build(speciesId: string, form: string, opts: { opaco: b
 				E(Vector3.new(1.1, 1.0, 2.2), Vector3.new(s * 0.45, 1.25, -0.05), accent)
 			end
 		end
+		bone = "head"
 		eyes(Vector3.new(0, 1.3, 1.05), 0.3, 0.2, 0.02)
 		smile(Vector3.new(0, 0.98, 1.12), 0.24)
 		for i = 1, 4 do
@@ -488,6 +514,19 @@ function CreatureBuilder.build(speciesId: string, form: string, opts: { opaco: b
 				"Leg"
 			)
 		end
+	end
+
+	-- Cola repartida en tail1..tail5 (como los rigs de los modelos importados)
+	local tails = {}
+	for _, rec in ipairs(parts) do
+		if rec.kind == "Tail" then
+			table.insert(tails, rec)
+		end
+	end
+	for i, rec in ipairs(tails) do
+		local name = "tail" .. tostring(math.min(5, math.floor((i - 1) * 5 / #tails) + 1))
+		rec.part.Name = name
+		rec.part:SetAttribute("Bone", name)
 	end
 
 	local scale = if T then vis.talladoScale else vis.broteScale

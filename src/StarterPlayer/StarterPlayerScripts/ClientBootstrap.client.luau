@@ -18,8 +18,13 @@ local WorldController = require(Client.Controllers.WorldController)
 local BattleController = require(Client.Controllers.BattleController)
 local QuickMenu = require(Client.UI.QuickMenu)
 local LotController = require(Client.Controllers.LotController)
+local AmbientLifeController = require(Client.Controllers.AmbientLifeController)
+local VFXContext = require(Client.VFX.VFXContext)
+local VFXSettings = require(Client.VFX.VFXSettings)
+local AuraController = require(Client.VFX.AuraController)
 local Ceremony = require(Client.UI.Ceremony)
 local Encounters = require(game:GetService("ReplicatedStorage").Shared.Config.Encounters)
+local World = require(game:GetService("ReplicatedStorage").Shared.Config.World)
 local Breeding = require(Client.UI.Screens.Breeding)
 local Adventure = require(Client.UI.Screens.Adventure)
 
@@ -61,6 +66,9 @@ WorldController.init({
 		local open = stationId and stations[stationId]
 		if open then
 			open()
+		elseif stationId and World.Stations[stationId] then
+			-- Estaciones que se presentan pero aún no abren (Portal de Arenas, Círculo)
+			toast(World.Stations[stationId].label .. ": se abrirá más adelante")
 		end
 	end,
 	openSanctuary = Modals.sanctuary,
@@ -152,7 +160,15 @@ Net.on("Toast", function(payload)
 	Hud.toast(payload.kind or "•", payload.text)
 end)
 
+-- Efectos: un solo paso por frame para todos (auras, combate, impactos)
+VFXSettings.detect()
+VFXContext.start(game:GetService("RunService").RenderStepped)
+AuraController.start(VFXContext.runtime(), function()
+	local camera = workspace.CurrentCamera
+	return if camera then camera.CFrame.Position else nil
+end)
 WorldController.start()
 LotController.start()
+AmbientLifeController.start()
 -- Oyentes listos: se pide la vista por si el primer envío llegó antes de conectarlos
 Net.request("Profile.Get")

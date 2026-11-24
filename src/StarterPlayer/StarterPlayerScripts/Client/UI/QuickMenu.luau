@@ -9,6 +9,7 @@ local Collection = require(script.Parent.Screens.Collection)
 local Breeding = require(script.Parent.Screens.Breeding)
 local Adventure = require(script.Parent.Screens.Adventure)
 local SanctuaryPlus = require(script.Parent.Screens.SanctuaryPlus)
+local EffectsSettings = require(script.Parent.Screens.EffectsSettings)
 
 local QuickMenu = {}
 
@@ -58,6 +59,7 @@ function QuickMenu.open(openTree: () -> (), openSanctuary: () -> ())
 		{ "🏆", "Vitrina", SanctuaryPlus.showcase, 0 },
 		{ "🌳", "Árbol", openTree, #view.pendingRewards },
 		{ "🕘", "Historial", Breeding.history, 0 },
+		{ "✨", "Efectos", EffectsSettings.open, 0 },
 	}
 	local ui = Modals.UI
 	Modals.open(function(content)

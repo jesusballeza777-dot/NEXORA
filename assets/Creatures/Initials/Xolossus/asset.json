@@ -1,0 +1,198 @@
+{
+  "id": "CR_Xolossus_Tallado_v01",
+  "name": "Xolossus",
+  "species": "xolumi",
+  "form": "Tallado",
+  "version": 1,
+  "status": "Proposal",
+  "approval": "Pendiente de aprobación humana (docs/ART_BIBLE_GENESIS.md §11)",
+  "provenance": "Esculpido procedural con tools/sculpt (campos de distancia → marching cubes → simplificación → UV xatlas → horneado PBR). Sin herramientas externas de IA.",
+  "rarity": "Comun",
+  "elements": [
+    "Agua"
+  ],
+  "family": "Anfibio",
+  "biome": "ValleCopal",
+  "units": "studs (Y arriba, mira hacia +Z)",
+  "budget": {
+    "triangles": [
+      4000,
+      6500
+    ],
+    "bones": 30,
+    "texture": "1024x1024"
+  },
+  "bones": [
+    {
+      "name": "root",
+      "parent": null,
+      "head": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "spine",
+      "parent": "root",
+      "head": [
+        0,
+        0.62,
+        -0.6
+      ]
+    },
+    {
+      "name": "chest",
+      "parent": "spine",
+      "head": [
+        0,
+        1.05,
+        0.3
+      ]
+    },
+    {
+      "name": "neck",
+      "parent": "chest",
+      "head": [
+        0,
+        1.4,
+        0.66
+      ]
+    },
+    {
+      "name": "head",
+      "parent": "neck",
+      "head": [
+        0,
+        1.8,
+        0.94
+      ]
+    },
+    {
+      "name": "jaw",
+      "parent": "head",
+      "head": [
+        0,
+        1.68,
+        0.99
+      ]
+    },
+    {
+      "name": "legF_L",
+      "parent": "chest",
+      "head": [
+        0.44,
+        1.02,
+        0.6
+      ]
+    },
+    {
+      "name": "legF_R",
+      "parent": "chest",
+      "head": [
+        -0.44,
+        1.02,
+        0.6
+      ]
+    },
+    {
+      "name": "legM_L",
+      "parent": "spine",
+      "head": [
+        0.46,
+        0.66,
+        -0.2
+      ]
+    },
+    {
+      "name": "legM_R",
+      "parent": "spine",
+      "head": [
+        -0.46,
+        0.66,
+        -0.2
+      ]
+    },
+    {
+      "name": "legB_L",
+      "parent": "spine",
+      "head": [
+        0.4,
+        0.56,
+        -0.95
+      ]
+    },
+    {
+      "name": "legB_R",
+      "parent": "spine",
+      "head": [
+        -0.4,
+        0.56,
+        -0.95
+      ]
+    },
+    {
+      "name": "tail1",
+      "parent": "spine",
+      "head": [
+        0,
+        0.58,
+        -1.3
+      ]
+    },
+    {
+      "name": "tail2",
+      "parent": "tail1",
+      "head": [
+        0,
+        0.58,
+        -2.0
+      ]
+    }
+  ],
+  "lods": {
+    "LOD0": {
+      "file": "CR_Xolossus_Tallado_v01.glb",
+      "triangles": 6104,
+      "vertices": 4898,
+      "texture": "1024x1024",
+      "uvCoverage": 0.503,
+      "bakeSeconds": 116.7,
+      "sizeStuds": [
+        2.567,
+        2.951,
+        4.438
+      ]
+    },
+    "LOD1": {
+      "file": "CR_Xolossus_Tallado_v01_LOD1.glb",
+      "triangles": 2744,
+      "vertices": 2584,
+      "texture": "512x512",
+      "uvCoverage": 0.452,
+      "bakeSeconds": 13.5,
+      "sizeStuds": [
+        2.57,
+        2.965,
+        4.424
+      ]
+    }
+  },
+  "highPolyTriangles": 282784,
+  "maps": {
+    "ColorMap": "textures/CR_Xolossus_Tallado_v01_color.png",
+    "NormalMap": "textures/CR_Xolossus_Tallado_v01_normal.png",
+    "RoughnessMap": "textures/CR_Xolossus_Tallado_v01_roughness.png",
+    "MetalnessMap": "textures/CR_Xolossus_Tallado_v01_metalness.png",
+    "EmissiveMask": "textures/CR_Xolossus_Tallado_v01_emissive.png"
+  },
+  "files": {
+    "glb": "CR_Xolossus_Tallado_v01.glb",
+    "glbLod1": "CR_Xolossus_Tallado_v01_LOD1.glb",
+    "obj": "CR_Xolossus_Tallado_v01.obj"
+  },
+  "dependencies": [],
+  "robloxAssetId": null,
+  "notes": "Seis patas, torso erguido 30°, corona de branquias de humo de copal, vetas de oro de reparación, aleta dorada.",
+  "builtAt": "2026-11-24"
+}

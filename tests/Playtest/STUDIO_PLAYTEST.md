@@ -80,3 +80,18 @@ Marca cada punto solo si lo ejecutaste. Usa el almacén de pruebas y `Dev.GrantX
 | F2-18 | MicroProfiler en móvil emulado | Sin picos al abrir el Álbum ni en el combate contra Copalia | ☐ |
 | F2-19 | Eclosionar el primer huevo y abrir Logros | Aviso «Logro: Primer latido»; la insignia aparece en el menú; reclamar da 10 Gemas y un Cofre de Madera una sola vez | ☐ |
 | F2-20 | Entrar con un perfil v2 guardado en el DataStore de pruebas | Se migra a v3 sin pérdidas; los logros ya cumplidos llegan con su premio una vez | ☐ |
+
+## Fase 3 · World Forge (no ejecutado: sin Studio)
+
+| # | Prueba | Esperado | ✓ |
+|---|---|---|---|
+| F3-1 | Importar `CR_Kuachi_Brote_v01.glb` con File → Import 3D | MeshPart con huesos y piel; escala igual a `asset.json → sizeStuds`; sin avisos del importador | ☐ |
+| F3-2 | Crear `SurfaceAppearance` con los cuatro PNG de `textures/` | Pelaje con relieve, máscara del tlacuache, ojos brillantes; sin costuras visibles | ☐ |
+| F3-3 | Guardar el modelo en `ReplicatedStorage.CreatureModels/CR_Kuachi_Brote_v01` | `MeshCreature.build("kuachi", "Brote")` lo devuelve; el acompañante usa la malla en lugar del blockout | ☐ |
+| F3-4 | Repetir F3-1…F3-3 con los otros cinco | Mitlaxis: anillos y disco giran con sus huesos | ☐ |
+| F3-5 | Emisivo (D-036) | Brasas, ojos de Tallado y estrellas brillan solo en los surcos; elegir entre `SurfaceAppearance` emisivo o malla `Neon` | ☐ |
+| F3-6 | 8 criaturas con aura en pantalla en el teléfono base (emulación + dispositivo real) | ≥ 30 fps; memoria de texturas medida | ☐ |
+| F3-7 | Valle Copal nuevo (terreno, río, cascada, Gran Nexo, estaciones) | Sin agujeros en el terreno; el agua fluye; ningún prompt bloqueado; < 4 000 partes | ☐ |
+| F3-8 | Gabinete que Camina y vida ambiental | Camina alrededor del árbol sin atravesar estaciones; animales con LOD por distancia | ☐ |
+| F3-9 | Combate con VFX por elemento | Cada elemento se distingue sin leer; la cara nunca queda tapada; aura al 60 % | ☐ |
+| F3-10 | Seguimiento del acompañante con 4 jugadores en Team Test | Sin vibración ni teletransportes salvo a > 60 studs; no atraviesa al jugador | ☐ |

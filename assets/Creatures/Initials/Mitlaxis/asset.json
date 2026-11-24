@@ -1,0 +1,180 @@
+{
+  "id": "CR_Mitlaxis_Tallado_v01",
+  "name": "Mitlaxis",
+  "species": "teselo",
+  "form": "Tallado",
+  "version": 1,
+  "status": "Proposal",
+  "approval": "Pendiente de aprobación humana (docs/ART_BIBLE_GENESIS.md §11)",
+  "provenance": "Esculpido procedural con tools/sculpt (campos de distancia → marching cubes → simplificación → UV xatlas → horneado PBR). Sin herramientas externas de IA.",
+  "rarity": "Comun",
+  "elements": [
+    "Tierra"
+  ],
+  "family": "ReptilAcorazado",
+  "biome": "ValleCopal",
+  "units": "studs (Y arriba, mira hacia +Z)",
+  "budget": {
+    "triangles": [
+      4000,
+      6500
+    ],
+    "bones": 30,
+    "texture": "1024x1024"
+  },
+  "bones": [
+    {
+      "name": "root",
+      "parent": null,
+      "head": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "body",
+      "parent": "root",
+      "head": [
+        0,
+        1.0,
+        0.0
+      ]
+    },
+    {
+      "name": "neck",
+      "parent": "body",
+      "head": [
+        0,
+        1.0,
+        1.45
+      ]
+    },
+    {
+      "name": "head",
+      "parent": "neck",
+      "head": [
+        0,
+        1.2,
+        1.9
+      ]
+    },
+    {
+      "name": "jaw",
+      "parent": "head",
+      "head": [
+        0,
+        1.08,
+        2.2
+      ]
+    },
+    {
+      "name": "legF_L",
+      "parent": "body",
+      "head": [
+        0.98,
+        0.9,
+        1.05
+      ]
+    },
+    {
+      "name": "legF_R",
+      "parent": "body",
+      "head": [
+        -0.98,
+        0.9,
+        1.05
+      ]
+    },
+    {
+      "name": "legB_L",
+      "parent": "body",
+      "head": [
+        0.98,
+        0.9,
+        -1.15
+      ]
+    },
+    {
+      "name": "legB_R",
+      "parent": "body",
+      "head": [
+        -0.98,
+        0.9,
+        -1.15
+      ]
+    },
+    {
+      "name": "ringA",
+      "parent": "body",
+      "head": [
+        0,
+        1.62,
+        -0.08
+      ]
+    },
+    {
+      "name": "ringB",
+      "parent": "body",
+      "head": [
+        0,
+        1.82,
+        -0.1
+      ]
+    },
+    {
+      "name": "skyDisc",
+      "parent": "body",
+      "head": [
+        0,
+        2.88,
+        -0.12
+      ]
+    }
+  ],
+  "lods": {
+    "LOD0": {
+      "file": "CR_Mitlaxis_Tallado_v01.glb",
+      "triangles": 6108,
+      "vertices": 4779,
+      "texture": "1024x1024",
+      "uvCoverage": 0.449,
+      "bakeSeconds": 63.3,
+      "sizeStuds": [
+        4.477,
+        3.479,
+        4.817
+      ]
+    },
+    "LOD1": {
+      "file": "CR_Mitlaxis_Tallado_v01_LOD1.glb",
+      "triangles": 4028,
+      "vertices": 3107,
+      "texture": "512x512",
+      "uvCoverage": 0.388,
+      "bakeSeconds": 10.2,
+      "sizeStuds": [
+        4.479,
+        3.453,
+        4.852
+      ]
+    }
+  },
+  "highPolyTriangles": 496130,
+  "maps": {
+    "ColorMap": "textures/CR_Mitlaxis_Tallado_v01_color.png",
+    "NormalMap": "textures/CR_Mitlaxis_Tallado_v01_normal.png",
+    "RoughnessMap": "textures/CR_Mitlaxis_Tallado_v01_roughness.png",
+    "MetalnessMap": "textures/CR_Mitlaxis_Tallado_v01_metalness.png",
+    "EmissiveMask": "textures/CR_Mitlaxis_Tallado_v01_emissive.png"
+  },
+  "files": {
+    "glb": "CR_Mitlaxis_Tallado_v01.glb",
+    "glbLod1": "CR_Mitlaxis_Tallado_v01_LOD1.glb",
+    "obj": "CR_Mitlaxis_Tallado_v01.obj"
+  },
+  "dependencies": [],
+  "robloxAssetId": null,
+  "notes": "Fortaleza de tres terrazas con grecas talladas (luz en los surcos), anillos de astrolabio con huesos propios, disco de cielo nocturno flotante, placas de jade.",
+  "builtAt": "2026-11-24"
+}

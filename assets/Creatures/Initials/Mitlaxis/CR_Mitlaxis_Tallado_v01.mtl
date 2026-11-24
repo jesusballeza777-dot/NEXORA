@@ -1,0 +1,7 @@
+newmtl CR_Mitlaxis_Tallado_v01
+Kd 1 1 1
+map_Kd textures/CR_Mitlaxis_Tallado_v01_color.png
+norm textures/CR_Mitlaxis_Tallado_v01_normal.png
+map_Pr textures/CR_Mitlaxis_Tallado_v01_roughness.png
+map_Pm textures/CR_Mitlaxis_Tallado_v01_metalness.png
+map_Ke textures/CR_Mitlaxis_Tallado_v01_emissive.png

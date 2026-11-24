@@ -13,3 +13,7 @@ sourcemap.json
 node_modules/
 *.log
 tools/web-preview/dist/*.tmp
+# Copias de trabajo de agentes (Claude Code)
+.claude/worktrees/
+# Caché de Python del escultor
+__pycache__/

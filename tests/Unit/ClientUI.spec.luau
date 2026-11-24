@@ -77,6 +77,7 @@ local function mountAll(view: any, petIds: { string })
 	local Adventure = sb.load("StarterPlayerScripts.Client.UI.Screens.Adventure")
 	local SanctuaryPlus = sb.load("StarterPlayerScripts.Client.UI.Screens.SanctuaryPlus")
 	local QuickMenu = sb.load("StarterPlayerScripts.Client.UI.QuickMenu")
+	local EffectsSettings = sb.load("StarterPlayerScripts.Client.UI.Screens.EffectsSettings")
 
 	Collection.album(nil, nil)
 	Collection.album("ValleCopal", "Tallado")
@@ -99,6 +100,16 @@ local function mountAll(view: any, petIds: { string })
 	SanctuaryPlus.decor()
 	SanctuaryPlus.showcase()
 	QuickMenu.open(function() end, function() end)
+	EffectsSettings.open()
+	-- El combate visual carga e inicializa (sus secuencias se prueban en CombatVFX.spec)
+	local BattleController = sb.load("StarterPlayerScripts.Client.Controllers.BattleController")
+	BattleController.init({
+		toast = function() end,
+		elementColor = function()
+			return harness.sandbox.roblox.Color3.new(1, 1, 1)
+		end,
+	})
+	expect(BattleController.active()).toBe(false)
 	for _, r in ipairs(view.pendingRewards) do
 		Modals.reward(r.id)
 	end

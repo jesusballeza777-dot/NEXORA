@@ -17,6 +17,8 @@ local Economy = require(Config:WaitForChild("Economy"))
 
 local Kit = require(script.Parent.Kit)
 local CreatureBuilder = require(script.Parent.Parent.Creatures.CreatureBuilder)
+local EvolutionVFXController = require(script.Parent.Parent.VFX.EvolutionVFXController)
+local SoundController = require(script.Parent.Parent.Audio.SoundController)
 
 local Ceremony = {}
 
@@ -183,6 +185,7 @@ function Ceremony.hatch(speciesId: string, petName: string?, newSpecies: boolean
 		end
 		egg:Destroy()
 		flash()
+		SoundController.shared():play("SFX_UI_Hatch")
 		portrait(root, speciesId, "Brote")
 		caption(
 			root,
@@ -202,22 +205,31 @@ function Ceremony.evolve(speciesId: string, beforeStats: { [string]: number }?, 
 	local rar = Rarities.ById[sp.rarity]
 	task.spawn(function()
 		local root, skipped = stage(Kit.Color.copalGlow)
-		local note = caption(root, sp.broteName .. " está listo para tallarse", "El Nexo responde a su Vínculo…")
-		local brote = portrait(root, speciesId, "Brote")
-		-- Animación especial: el Brote gira y se envuelve en luz
-		TweenService:Create(brote, TweenInfo.new(1.6, Enum.EasingStyle.Sine), { Rotation = 360 }):Play()
-		waitOrSkip(1.7, skipped)
-		flash()
-		local white = Kit.new("Frame", {
-			Size = UDim2.fromScale(1, 1),
-			BackgroundColor3 = Color3.new(1, 1, 1),
-			BackgroundTransparency = 0,
-			Parent = root,
+		local note: Instance? =
+			caption(root, sp.broteName .. " está listo para tallarse", "El Nexo responde a su Vínculo…")
+		-- Secuencia del Tallado (EvolutionVFXController): preparación corporal, energía del
+		-- elemento, transición de materiales, luz, revelación del Tallado y presentación.
+		local evo = EvolutionVFXController.new(root, speciesId, {
+			onFlash = flash,
+			sound = SoundController.shared(),
+			onPhase = function(phase: string)
+				if phase == "Reveal" and note then
+					note:Destroy()
+					note = nil
+				end
+			end,
 		})
-		brote:Destroy()
-		note:Destroy()
-		portrait(root, speciesId, "Tallado")
-		TweenService:Create(white, TweenInfo.new(0.9), { BackgroundTransparency = 1 }):Play()
+		while not evo.done do
+			local dt = task.wait()
+			if skipped() then
+				evo:skip()
+			else
+				evo:step(dt)
+			end
+		end
+		if note then
+			note:Destroy()
+		end
 		local changes = nil
 		if beforeStats and afterStats then
 			local parts = {}

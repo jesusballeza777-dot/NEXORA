@@ -34,6 +34,7 @@ globals:
   Random: { any: true }
   DateTime: { any: true }
   Font: { any: true }
+  UserSettings: { any: true }
   PhysicalProperties: { any: true }
   BrickColor: { any: true }
   Region3: { any: true }

@@ -164,7 +164,51 @@ local function inject(text: string, marker: string, content: string): string
 	assert(i, "Falta el marcador " .. marker)
 	return string.sub(text, 1, i - 1) .. content .. string.sub(text, (j :: number) + 1)
 end
-html = inject(html, "/*__NEXORA_CONFIG__*/", "window.NEXORA_CONFIG = " .. json .. ";")
+-- Modelos 3D de la Fase 3 (propuesta): versión web de assets/Creatures/**/web/*.web.glb en base64
+local B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+local function base64(data: string): string
+	local out = table.create(math.ceil(#data / 3))
+	for i = 1, #data, 3 do
+		local a, b, c = string.byte(data, i, i + 2)
+		local n = a * 65536 + (b or 0) * 256 + (c or 0)
+		local c1 = bit32.extract(n, 18, 6) + 1
+		local c2 = bit32.extract(n, 12, 6) + 1
+		local c3 = bit32.extract(n, 6, 6) + 1
+		local c4 = bit32.extract(n, 0, 6) + 1
+		table.insert(
+			out,
+			string.sub(B64, c1, c1)
+				.. string.sub(B64, c2, c2)
+				.. (if b then string.sub(B64, c3, c3) else "=")
+				.. (if c then string.sub(B64, c4, c4) else "=")
+		)
+	end
+	return table.concat(out)
+end
+local glbEntries = {}
+local initials = ROOT .. "assets/Creatures/Initials/"
+if fs.isDir(initials) then
+	local names = fs.readDir(initials)
+	table.sort(names)
+	for _, name in ipairs(names) do
+		local metaPath = initials .. name .. "/asset.json"
+		if fs.isFile(metaPath) then
+			local meta = serde.decode("json", fs.readFile(metaPath))
+			local web = initials .. name .. "/web/" .. meta.id .. ".web.glb"
+			if fs.isFile(web) then
+				table.insert(
+					glbEntries,
+					string.format('"%s:%s":"%s"', meta.species, meta.form, base64(fs.readFile(web)))
+				)
+			end
+		end
+	end
+end
+html = inject(
+	html,
+	"/*__NEXORA_CONFIG__*/",
+	"window.NEXORA_CONFIG = " .. json .. ";\nwindow.NEXORA_GLB = {" .. table.concat(glbEntries, ",") .. "};"
+)
 html = inject(html, "/*__NEXORA_NORMALIZE__*/", normalize)
 html = inject(html, "/*__NEXORA_ENGINE__*/", engine)
 html = inject(html, "/*__NEXORA_DOMAIN__*/", domain)
@@ -192,4 +236,11 @@ end
 fragment = string.gsub(fragment, '<meta charset="utf%-8">\n', "", 1)
 fragment = string.gsub(fragment, '<meta name="viewport"[^\n]*\n', "", 1)
 fs.writeFile(ROOT .. "build/web/NEXORA_Preview.artifact.html", fragment)
-print(string.format("Vista previa: %d KB · %d combates de referencia", math.floor(#html / 1024), #cases))
+print(
+	string.format(
+		"Vista previa: %d KB · %d combates de referencia · %d modelos 3D",
+		math.floor(#html / 1024),
+		#cases,
+		#glbEntries
+	)
+)
