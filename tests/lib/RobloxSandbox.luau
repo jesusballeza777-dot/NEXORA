@@ -45,12 +45,6 @@ end)
 roblox.implementMethod("Sound", "Stop", function(self)
 	table.insert(engineCalls.stop, self)
 end)
--- BulkMoveTo: asigna los CFrame uno a uno (en Roblox es una sola llamada barata)
-roblox.implementMethod("Workspace", "BulkMoveTo", function(_self, parts, cframes)
-	for i, part in ipairs(parts) do
-		part.CFrame = cframes[i]
-	end
-end)
 
 export type Sandbox = {
 	workspace: any,
