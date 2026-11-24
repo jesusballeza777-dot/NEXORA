@@ -9,12 +9,16 @@
 --   · la muestra ambiental (parcela de 120×120 studs) con su landmark, recorrido y presupuesto.
 --
 -- Estado:
---   · ValleCopal parte de Config/Ambience.luau (lo que construye ValleBuilder hoy) con los
---     ajustes propuestos en docs/LIGHTING_DIRECTION.md §9.
+--   · ValleCopal se DERIVA de Config/Ambience.luau (lo que construye Server/World hoy): su
+--     Tarde, su terreno y su agua leen Ambience. Solo cuatro valores son propuesta y van
+--     marcados «PROPUESTA L-n» (docs/LIGHTING_DIRECTION.md §9).
 --   · Los otros cuatro biomas son PROPUESTA de arte y esperan aprobación humana.
 --   · Nadie aplica este archivo todavía; Ambience.luau sigue mandando en el juego.
 --   · Las MaterialVariant nombradas aquí no existen aún en Roblox: son el plan de
---     docs/MATERIAL_LIBRARY.md §5.
+--     docs/MATERIAL_LIBRARY.md §5. El terreno de Roblox tiene un solo color y una sola
+--     variante por material en todo el lugar, así que cada material base pertenece a un
+--     bioma; los que el Valle ya usa y otro bioma necesita son compartidos (MAT_Global_*,
+--     mismo color en todos).
 --
 -- Reglas que comprueba tests/Unit/BiomeArt.spec.luau (Biblia visual, docs/ART_BIBLE_GENESIS.md):
 --   · pigmentos ≤ 70 % de saturación (HSV); los emisivos y los acentos del elemento van aparte;
@@ -22,9 +26,10 @@
 --   · ColorCorrection con contraste +0,05…+0,10 y saturación cercana a 0.
 --
 -- Colores en RGB 0-255, como Ambience. La paleta y el terreno llevan además su hex
--- (es el que citan los documentos); el RGB se deriva del hex para que no se separen.
+-- (es el que citan los documentos); uno se deriva del otro para que no se separen.
 
 local Freeze = require(script.Parent.Parent.Util.Freeze)
+local Ambience = require(script.Parent.Ambience)
 
 export type RGB = { number }
 export type BiomeId = "ValleCopal" | "MareaCoralina" | "CumbreBrasa" | "MesetaFulgor" | "VeloAstral"
@@ -74,7 +79,15 @@ export type Preset = {
 }
 
 -- material: nombre de Enum.Material de terreno · variant: MaterialVariant propuesta (MAT_...)
-export type TerrainEntry = { material: string, variant: string, hex: string, rgb: RGB, role: string }
+-- shared: material que usan varios biomas con el mismo color y la misma variante (MAT_Global_*)
+export type TerrainEntry = {
+	material: string,
+	variant: string,
+	hex: string,
+	rgb: RGB,
+	role: string,
+	shared: boolean,
+}
 
 export type WaterLook = {
 	color: RGB,
@@ -135,13 +148,41 @@ local function hexToRgb(hex: string): RGB
 	}
 end
 
+local function rgbToHex(c: RGB): string
+	return string.format("#%02X%02X%02X", c[1], c[2], c[3])
+end
+
 local function sw(id: string, hex: string, kind: SwatchKind, role: string): Swatch
 	return { id = id, hex = hex, rgb = hexToRgb(hex), kind = kind, role = role }
 end
 
-local function ground(material: string, variant: string, hex: string, role: string): TerrainEntry
-	return { material = material, variant = variant, hex = hex, rgb = hexToRgb(hex), role = role }
+-- Muestra tomada de un color que ya existe en Config/Ambience
+local function swAmb(id: string, c: RGB, kind: SwatchKind, role: string): Swatch
+	return { id = id, hex = rgbToHex(c), rgb = { c[1], c[2], c[3] }, kind = kind, role = role }
 end
+
+local function ground(material: string, variant: string, hex: string, role: string): TerrainEntry
+	return { material = material, variant = variant, hex = hex, rgb = hexToRgb(hex), role = role, shared = false }
+end
+
+-- Materiales de terreno que ya usa el Valle (Ambience.Terrain.materials) y que otros
+-- biomas comparten con el mismo color y la misma variante.
+local function ambGround(material: string, variant: string, role: string, shared: boolean): TerrainEntry
+	local c = (Ambience.Terrain.materials :: any)[material] :: RGB
+	return {
+		material = material,
+		variant = variant,
+		hex = rgbToHex(c),
+		rgb = { c[1], c[2], c[3] },
+		role = role,
+		shared = shared,
+	}
+end
+
+local AL = Ambience.Lighting
+local AA = Ambience.Atmosphere
+local AP = Ambience.Palette
+local AW = Ambience.Terrain.water
 
 local ById: { [string]: BiomeArtDef } = {}
 
@@ -151,59 +192,64 @@ local ById: { [string]: BiomeArtDef } = {}
 ById.ValleCopal = {
 	id = "ValleCopal",
 	name = "Valle Copal",
-	status = "Existente (Config/Ambience.luau) con ajustes PROPUESTOS",
+	status = "Existente: Tarde, terreno y agua leen Config/Ambience; Crepúsculo, Noche y 4 valores PROPUESTOS",
 	elements = { "Flora", "Tierra", "Aire" },
 	guardian = "Copalia, la Garza de Raíces",
 	defaultMoment = "Tarde",
 	palette = {
-		sw("copal", "#E8A848", "Pigmento", "Copal: escalonados de la plaza, toldos, interfaz"),
-		sw("copalLuz", "#FFC460", "Emisivo", "Faroles, corazón del Gran Nexo, vetas de luz"),
-		sw("jade", "#3E967A", "Pigmento", "Agua de chinampa, azulejo, acciones de cuidado"),
-		sw(
-			"jadeSombra",
-			"#2F6E5C",
-			"Pigmento",
-			"Sombra fría de referencia (de ella salen OutdoorAmbient y ColorShift_Bottom)"
-		),
-		sw("turquesa", "#4FA9A3", "Pigmento", "Río, azulejos, cintas de mercado"),
-		sw("hojaCalida", "#7FA650", "Pigmento", "Pasto y copas al sol"),
-		sw("hojaProfunda", "#3B6E44", "Pigmento", "Copas en sombra, sotobosque"),
-		sw("beige", "#D9C9A8", "Pigmento", "Piedra clara de la plaza, adobe encalado"),
-		sw("ocre", "#C08A44", "Pigmento", "Tierra de camino, petates, tejas viejas"),
-		sw("barro", "#B06240", "Pigmento", "Adobe rojo, cerámica, tejas"),
-		sw("corteza", "#60463A", "Pigmento", "Gran Nexo, vigas, troncos"),
-		sw("cacao", "#3A271D", "Pigmento", "Sombra de la arquitectura, interiores"),
-		sw("cempasuchil", "#E6964A", "Pigmento", "Flores de cempasúchil (bajo el tope de saturación)"),
-		sw("bugambilia", "#D6488C", "Pigmento", "Bugambilias y papel picado"),
+		swAmb("copal", AP.copal, "Pigmento", "Copal: escalonados de la plaza, toldos, interfaz"),
+		swAmb("copalLuz", AP.copalGlow, "Emisivo", "Faroles, corazón del Gran Nexo, vetas de luz"),
+		swAmb("jade", AP.jade, "Pigmento", "Agua de chinampa, azulejo, acciones de cuidado"),
+		swAmb("jadeSombra", AP.jadeDeep, "Pigmento", "Sombra fría de referencia (Ambient y ColorShift_Bottom)"),
+		sw("turquesa", "#4FA9A3", "Pigmento", "Cintas, azulejos y vitral de la puerta de la Marea"),
+		swAmb("hoja", AP.leaf, "Pigmento", "Copas y praderas"),
+		swAmb("hojaProfunda", AP.leafDeep, "Pigmento", "Copas en sombra, sotobosque"),
+		swAmb("piedra", AP.stone, "Pigmento", "Piedra clara de la plaza"),
+		swAmb("adobe", AP.adobe, "Pigmento", "Adobe encalado de casas y talleres"),
+		sw("ocre", "#C08A44", "Pigmento", "Petates, tejas viejas, costales"),
+		swAmb("barro", AP.clay, "Pigmento", "Cerámica roja, tejas"),
+		swAmb("corteza", AP.bark, "Pigmento", "Gran Nexo, vigas, troncos"),
+		swAmb("cacao", AP.cacaoMid, "Pigmento", "Sombra de la arquitectura, interiores"),
+		swAmb("cempasuchil", Ambience.Flowers.colors[1], "Pigmento", "Cempasúchil (bajo el tope de saturación)"),
+		swAmb("bugambilia", Ambience.Flowers.colors[2], "Pigmento", "Bugambilias y papel picado"),
 	},
 	presets = {
 		Tarde = {
-			label = "Tarde dorada (por defecto)",
+			label = "Tarde dorada (por defecto, Config/Ambience)",
 			Lighting = {
-				brightness = 2.4,
-				clockTime = 15.8, -- hoy 16.6; ~30° de sol (Genesis §7)
-				geographicLatitude = 23,
-				ambient = rgb(60, 64, 66),
-				outdoorAmbient = rgb(124, 136, 134), -- hoy (150, 128, 112): sombras frías, no pardas
-				colorShiftTop = rgb(236, 200, 150),
-				colorShiftBottom = rgb(50, 80, 82),
-				environmentDiffuseScale = 0.55,
-				environmentSpecularScale = 0.5,
-				shadowSoftness = 0.2,
+				brightness = AL.brightness,
+				clockTime = AL.clockTime,
+				geographicLatitude = AL.geographicLatitude,
+				ambient = AL.ambient,
+				outdoorAmbient = rgb(128, 134, 132), -- PROPUESTA L-1: hoy (138, 128, 120), sombras frías
+				colorShiftTop = rgb(236, 200, 150), -- PROPUESTA L-2: hoy sin tinte (0, 0, 0)
+				colorShiftBottom = rgb(50, 80, 82), -- PROPUESTA L-2
+				environmentDiffuseScale = AL.environmentDiffuseScale,
+				environmentSpecularScale = AL.environmentSpecularScale,
+				shadowSoftness = AL.shadowSoftness,
 				exposureCompensation = 0,
 			},
 			Atmosphere = {
-				density = 0.32,
-				offset = 0.12,
-				color = rgb(232, 196, 160),
-				decay = rgb(128, 140, 150), -- hoy (150, 110, 120): los planos lejanos se enfrían
-				glare = 0.35,
-				haze = 1.4,
+				density = AA.density,
+				offset = AA.offset,
+				color = AA.color,
+				decay = rgb(128, 140, 150), -- PROPUESTA L-3: hoy (150, 120, 130), lo lejano se enfría
+				glare = AA.glare,
+				haze = AA.haze,
 			},
-			ColorCorrection = { brightness = 0, contrast = 0.07, saturation = 0.03, tintColor = rgb(255, 246, 234) },
-			Bloom = { intensity = 0.55, size = 28, threshold = 1.6 },
-			SunRays = { intensity = 0.06, spread = 0.6 },
-			Clouds = { cover = 0.52, density = 0.55, color = rgb(255, 238, 226) },
+			ColorCorrection = {
+				brightness = 0,
+				contrast = Ambience.Grade.contrast,
+				saturation = Ambience.Grade.saturation,
+				tintColor = Ambience.Grade.tint,
+			},
+			Bloom = {
+				intensity = Ambience.Bloom.intensity,
+				size = Ambience.Bloom.size,
+				threshold = Ambience.Bloom.threshold,
+			},
+			SunRays = { intensity = Ambience.SunRays.intensity, spread = Ambience.SunRays.spread },
+			Clouds = { cover = Ambience.Clouds.cover, density = Ambience.Clouds.density, color = Ambience.Clouds.color },
 		},
 		Crepusculo = {
 			label = "Crepúsculo: faroles encendidos",
@@ -262,15 +308,25 @@ ById.ValleCopal = {
 			Clouds = { cover = 0.4, density = 0.4, color = rgb(118, 128, 160) },
 		},
 	},
+	-- Los ocho materiales que pinta hoy Ambience.Terrain.materials, con su color real.
 	terrain = {
-		ground("Grass", "MAT_ValleCopal_Pasto", "#68A054", "Pasto con Terrain.Decoration (color actual de Ambience)"),
-		ground("LeafyGrass", "MAT_ValleCopal_Sotobosque", "#4E8046", "Bajo los árboles y en las lindes"),
-		ground("Mud", "MAT_ValleCopal_LodoChinampa", "#765A44", "Orillas del río y chinampas (color actual)"),
-		ground("Ground", "MAT_ValleCopal_TierraCamino", "#9C7852", "Caminos gastados donde más se pisa"),
-		ground("Cobblestone", "MAT_ValleCopal_Calzada", "#AA9E8A", "Calzadas hacia las puertas de los biomas"),
+		ambGround("Grass", "MAT_ValleCopal_Pasto", "Praderas con Terrain.Decoration", false),
+		ambGround("LeafyGrass", "MAT_ValleCopal_Sotobosque", "Base de los lotes, bancales, bajo los árboles", false),
+		ambGround("Ground", "MAT_ValleCopal_TierraCamino", "Caminos (Landscape.Paths) y bancales", false),
+		ambGround("Slate", "MAT_ValleCopal_MuroTerraza", "Muros de las terrazas", false),
+		ambGround("Mud", "MAT_Global_Lodo", "Orillas del río y chinampas; manglar de la Marea", true),
+		ambGround("Sand", "MAT_Global_Arena", "Bancos del río; playas de la Marea", true),
+		ambGround("Rock", "MAT_Global_Roca", "Afloramientos y cascada; base de las islas del Velo", true),
+		ambGround("Basalt", "MAT_Global_Basalto", "Linde y afloramientos; coladas de la Cumbre", true),
 	},
-	water = { color = rgb(70, 150, 150), transparency = 0.6, reflectance = 0.3, waveSize = 0.08, waveSpeed = 6 },
-	fogColor = rgb(232, 196, 160),
+	water = {
+		color = AW.color,
+		transparency = AW.transparency,
+		reflectance = AW.reflectance,
+		waveSize = AW.waveSize,
+		waveSpeed = AW.waveSpeed,
+	},
+	fogColor = AA.color,
 	sample = nil, -- el Valle ya existe: lo construye ValleBuilder
 }
 
@@ -385,7 +441,8 @@ ById.MareaCoralina = {
 		},
 	},
 	terrain = {
-		ground("Sand", "MAT_MareaCoralina_ArenaArrecife", "#D9C8A2", "Playas, bancos de arena del arrecife"),
+		ambGround("Sand", "MAT_Global_Arena", "Playas y bancos de arena del arrecife", true),
+		ambGround("Mud", "MAT_Global_Lodo", "Fango del manglar", true),
 		ground("Limestone", "MAT_MareaCoralina_CalizaCenote", "#BDB39A", "Paredes y bóvedas del cenote"),
 		ground("Salt", "MAT_MareaCoralina_Coral", "#C98A78", "Roca de coral (desaturada; el coral vivo son mallas)"),
 		ground("Pavement", "MAT_MareaCoralina_LosaSumergida", "#8A9690", "Losas de las ruinas sumergidas"),
@@ -517,7 +574,7 @@ ById.CumbreBrasa = {
 		},
 	},
 	terrain = {
-		ground("Basalt", "MAT_CumbreBrasa_Colada", "#3A3638", "Coladas frías y laderas del volcán"),
+		ambGround("Basalt", "MAT_Global_Basalto", "Coladas frías y laderas del volcán", true),
 		ground(
 			"CrackedLava",
 			"MAT_CumbreBrasa_LavaDomada",
@@ -786,7 +843,7 @@ ById.VeloAstral = {
 	terrain = {
 		ground("Snow", "MAT_VeloAstral_Nube", "#B8B6DA", "Nubes pisables (cima de las islas)"),
 		ground("Ice", "MAT_VeloAstral_Escarcha", "#9FB4D8", "Escarcha estelar en bordes y puentes"),
-		ground("Rock", "MAT_VeloAstral_RocaIsla", "#4A4668", "Base de las islas flotantes"),
+		ambGround("Rock", "MAT_Global_Roca", "Base de las islas flotantes (la luz de luna la enfría)", true),
 	},
 	water = { color = rgb(34, 44, 92), transparency = 0.3, reflectance = 0.8, waveSize = 0.02, waveSpeed = 2 },
 	fogColor = rgb(90, 90, 160),

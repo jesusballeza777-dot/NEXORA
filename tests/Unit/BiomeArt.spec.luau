@@ -9,6 +9,7 @@ local BiomeArt = harness.get("ReplicatedStorage.Shared.Config.BiomeArt")
 local Elements = harness.get("ReplicatedStorage.Shared.Config.Elements")
 local Guardians = harness.get("ReplicatedStorage.Shared.Config.Guardians")
 local World = harness.get("ReplicatedStorage.Shared.Config.World")
+local Ambience = harness.get("ReplicatedStorage.Shared.Config.Ambience")
 
 local BIOMES = { "ValleCopal", "MareaCoralina", "CumbreBrasa", "MesetaFulgor", "VeloAstral" }
 local MOMENTS = { "Tarde", "Crepusculo", "Noche" }
@@ -187,8 +188,11 @@ T.describe("Dirección de arte de los biomas (Config/BiomeArt)", function()
 		end
 	end)
 
-	T.it("terreno: materiales válidos, variantes MAT_<Bioma>_ y ningún material base en dos biomas", function()
+	-- Terrain:SetMaterialColor y las variantes de MaterialService valen para todo el lugar:
+	-- un material base es de un solo bioma o compartido con el mismo color y variante.
+	T.it("terreno: materiales válidos, un material base por bioma o compartido con el mismo aspecto", function()
 		local owner: { [string]: string } = {}
+		local sharedLook: { [string]: string } = {}
 		for _, id in ipairs(BIOMES) do
 			local b = BiomeArt.ById[id]
 			expect(#b.terrain >= 3).toBe(true)
@@ -196,13 +200,32 @@ T.describe("Dirección de arte de los biomas (Config/BiomeArt)", function()
 				if not TERRAIN_MATERIALS[t.material] then
 					error(id .. ": material de terreno inválido " .. t.material)
 				end
-				if not string.match(t.variant, "^MAT_" .. id .. "_%w+$") then
+				local scope = if t.shared then "Global" else id
+				if not string.match(t.variant, "^MAT_" .. scope .. "_%w+$") then
 					error(id .. ": nombre de variante fuera de convención " .. t.variant)
 				end
-				if owner[t.material] then
-					error(string.format("%s ya lo usa %s; no puede usarlo %s", t.material, owner[t.material], id))
+				if t.shared then
+					local look = t.variant .. " " .. t.hex
+					if owner[t.material] then
+						error(string.format("%s es de %s; no puede compartirse", t.material, owner[t.material]))
+					end
+					if sharedLook[t.material] and sharedLook[t.material] ~= look then
+						error(
+							string.format(
+								"%s compartido con dos aspectos: %s / %s",
+								t.material,
+								sharedLook[t.material],
+								look
+							)
+						)
+					end
+					sharedLook[t.material] = look
+				else
+					if owner[t.material] or sharedLook[t.material] then
+						error(string.format("%s ya está en uso; no puede usarlo %s", t.material, id))
+					end
+					owner[t.material] = id
 				end
-				owner[t.material] = id
 			end
 			local w = b.water
 			checkColor(w.color, id .. ".water")
@@ -211,6 +234,18 @@ T.describe("Dirección de arte de los biomas (Config/BiomeArt)", function()
 			inRange(w.waveSize, 0, 1, id .. ".water.waveSize")
 			inRange(w.waveSpeed, 0, 100, id .. ".water.waveSpeed")
 			checkColor(b.fogColor, id .. ".fogColor")
+		end
+		-- Lo construido manda: cada material que pinta Ambience está en el reparto del Valle
+		local valle = {}
+		for _, t in ipairs(BiomeArt.ById.ValleCopal.terrain) do
+			valle[t.material] = t
+		end
+		for material, c in pairs(Ambience.Terrain.materials) do
+			local t = valle[material]
+			if not t then
+				error("Ambience pinta " .. material .. " y BiomeArt no lo asigna al Valle")
+			end
+			expect(t.rgb[1] == c[1] and t.rgb[2] == c[2] and t.rgb[3] == c[3]).toBe(true)
 		end
 	end)
 
@@ -235,7 +270,9 @@ T.describe("Dirección de arte de los biomas (Config/BiomeArt)", function()
 			expect(lm.visibleFrom >= 120).toBe(true)
 			expect(#s.path >= 3).toBe(true)
 			local b = s.budget
-			-- Mismos topes que el Valle (World.spec) y 20 partículas/s por emisor (Biblia p. 26)
+			-- Una parcela de 120×120 tiene topes propios, por debajo de los del Valle entero
+			-- (World.spec: < 4 000 partes, ≤ 24 luces, ≤ 10 emisores), y 20 partículas/s
+			-- por emisor (Biblia p. 26)
 			expect(b.parts <= 500).toBe(true)
 			expect(b.lights <= 12).toBe(true)
 			expect(b.emitters <= 8).toBe(true)
