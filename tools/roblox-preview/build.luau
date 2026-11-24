@@ -168,6 +168,12 @@ for _, call in ipairs(worldBox.terrainCalls) do
 		materialColors[a[1].Name] = { a[2].R, a[2].G, a[2].B }
 	end
 end
+-- Colores de los materiales: Lune implementa SetMaterialColor de forma nativa (no pasa
+-- por el registro de llamadas), así que se leen del terreno ya construido
+for _, name in ipairs({ "Grass", "LeafyGrass", "Ground", "Mud", "Sand", "Rock", "Slate", "Basalt" }) do
+	local c = worldBox.terrain:GetMaterialColor((roblox.Enum.Material :: any)[name])
+	materialColors[name] = { c.R, c.G, c.B }
+end
 -- Luces y emisores (la vista los dibuja como halos y nubes de puntos aproximadas)
 local lights, emitters = {}, {}
 for _, d in ipairs(built.root:GetDescendants()) do
