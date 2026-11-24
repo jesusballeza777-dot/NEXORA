@@ -12,7 +12,6 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
-local TweenService = game:GetService("TweenService")
 local ProximityPromptService = game:GetService("ProximityPromptService")
 local Workspace = game:GetService("Workspace")
 
@@ -110,12 +109,7 @@ function WorldController.init(h: { [string]: (any) -> () })
 			onPrompt(prompt)
 		end
 	end)
-	local heart = valle:WaitForChild("GranNexo"):WaitForChild("NexoHeart") :: BasePart
-	TweenService:Create(
-		heart,
-		TweenInfo.new(1.3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
-		{ Size = heart.Size * 1.08 }
-	):Play()
+	-- El latido del corazón del Nexo lo anima AmbientLifeController (etiqueta AmbientHeart)
 end
 
 local function myLot(): Model?

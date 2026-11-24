@@ -285,6 +285,30 @@ T.describe("Torre del Nexo, estaciones y Gabinete", function()
 	end)
 end)
 
+T.describe("Lotes Hogar (LotsBuilder)", function()
+	T.it("cada lote conserva sus piezas de juego: pedestales a 1,9, recolector, incubadora y letrero", function()
+		local sb = buildWorld()
+		for i, pos in ipairs(World.Lots.positions) do
+			local lot = sb.workspace.ValleCopal.Lots:FindFirstChild("Lot" .. i)
+			expect(lot ~= nil).toBe(true)
+			expect(lot:GetAttribute("LotIndex")).toBe(i)
+			expect(lot:FindFirstChild("Ground") ~= nil).toBe(true)
+			for s, off in ipairs(World.Lots.slotOffsets) do
+				local slot = lot.Habitat:FindFirstChild("Slot" .. s)
+				expect(slot:FindFirstChild("SlotPrompt") ~= nil).toBe(true)
+				local x, y, z, _, hy = footprint(slot)
+				expect(y + hy).toBeNear(1.9, 1e-3) -- ahí se paran los monstruos del hábitat
+				expect(flat(pos, x - off[1], z - off[3]) < 1e-3).toBe(true)
+			end
+			local collector = lot:FindFirstChild("Collector")
+			expect(collector:FindFirstChild("CollectPrompt") ~= nil).toBe(true)
+			expect(lot:FindFirstChild("IncubatorRing") ~= nil).toBe(true)
+			expect(lot:FindFirstChild("Incubator") ~= nil).toBe(true)
+			expect(lot.Sign:FindFirstChild("OwnerLabel") ~= nil).toBe(true)
+		end
+	end)
+end)
+
 T.describe("Paisaje de Valle Copal (Landform)", function()
 	T.it("el río, el lago y la cascada son agua de terreno", function()
 		local sb = buildWorld()

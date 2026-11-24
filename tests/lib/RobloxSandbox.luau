@@ -16,6 +16,13 @@ for _, method in ipairs({ "FillBlock", "FillBall", "FillCylinder", "FillWedge", 
 	end)
 end
 
+-- Workspace:BulkMoveTo (lo usa la vida ambiental del cliente): mueve las piezas de una vez
+roblox.implementMethod("Workspace", "BulkMoveTo", function(_self, parts: { any }, cframes: { any })
+	for i, part in ipairs(parts) do
+		part.CFrame = cframes[i]
+	end
+end)
+
 local RobloxSandbox = {}
 RobloxSandbox.roblox = roblox
 

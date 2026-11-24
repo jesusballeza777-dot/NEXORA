@@ -191,7 +191,7 @@ return Freeze.deep({
 		speed = 2.2, -- studs por segundo
 		rest = 34, -- segundos de descanso en la despensa por vuelta
 		turn = 3, -- segundos para girar al salir y al llegar
-		stride = 2.6, -- pasos por segundo a velocidad normal
+		stride = 3.2, -- studs recorridos por ciclo de paso (las patas no patinan)
 		halfSpan = 10.1, -- media envergadura de las patas (calzada libre)
 	},
 
