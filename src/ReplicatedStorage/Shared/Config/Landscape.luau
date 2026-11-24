@@ -170,12 +170,12 @@ return Freeze.deep({
 
 	-- Torre del Nexo: el árbol y sus siete estaciones
 	Torre = {
-		slabRings = { { 11, 16 }, { 16, 21 } }, -- losas del basamento (radios)
-		walkway = { inner = 22, outer = 33 }, -- calzada del Gabinete
+		slabRings = { { 10.5, 14.5 }, { 14.5, 19 } }, -- losas del basamento (radios)
+		walkway = { inner = 20, outer = 33 }, -- calzada del Gabinete
 		-- Cada estación se construye un poco hacia fuera (deja libre la calzada) y mira a `face`
 		stations = {
-			Despensa = { outward = 5, face = "tree" },
-			Criadero = { outward = 6, face = "tree" },
+			Despensa = { outward = 3, face = "tree" },
+			Criadero = { outward = 7, face = "tree" },
 			Mirador = { outward = 6, face = "tree" },
 			PortalArenas = { outward = 2, face = "tree" },
 			RepisaCofres = { outward = 2, face = "tree" },
@@ -186,13 +186,13 @@ return Freeze.deep({
 
 	-- El Gabinete que Camina: ruta circular alrededor del Gran Nexo (la recorre el cliente)
 	Gabinete = {
-		radius = 27.5,
+		radius = 27,
 		dockStation = "Despensa", -- descansa frente a su despensa
 		speed = 2.2, -- studs por segundo
 		rest = 34, -- segundos de descanso en la despensa por vuelta
 		turn = 3, -- segundos para girar al salir y al llegar
 		stride = 2.6, -- pasos por segundo a velocidad normal
-		halfSpan = 8.5, -- media envergadura de las patas (calzada libre)
+		halfSpan = 10.1, -- media envergadura de las patas (calzada libre)
 	},
 
 	-- Barrio de los Oficios (este): puestos del mercado y taller
@@ -214,7 +214,7 @@ return Freeze.deep({
 		benches = { { -27, 12 }, { 27, 12 }, { -18, 34 }, { 18, 34 } },
 		lanterns = { { -21, 28 }, { 21, 28 }, { -28, -2 }, { 28, -2 } },
 		papelHeight = 15,
-		papelStrings = { { { -31, 21 }, { 31, 21 } }, { { -31, 1 }, { 31, 1 } } },
+		papelStrings = { { { -31, 22 }, { 31, 22 } }, { { -31, 4 }, { 31, 4 } } },
 	},
 
 	-- Árboles protagonistas que encuadran las vistas (además del reparto con semilla)

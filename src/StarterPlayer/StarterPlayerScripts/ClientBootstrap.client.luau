@@ -20,6 +20,7 @@ local QuickMenu = require(Client.UI.QuickMenu)
 local LotController = require(Client.Controllers.LotController)
 local Ceremony = require(Client.UI.Ceremony)
 local Encounters = require(game:GetService("ReplicatedStorage").Shared.Config.Encounters)
+local World = require(game:GetService("ReplicatedStorage").Shared.Config.World)
 local Breeding = require(Client.UI.Screens.Breeding)
 local Adventure = require(Client.UI.Screens.Adventure)
 
@@ -61,6 +62,9 @@ WorldController.init({
 		local open = stationId and stations[stationId]
 		if open then
 			open()
+		elseif stationId and World.Stations[stationId] then
+			-- Estaciones que se presentan pero aún no abren (Portal de Arenas, Círculo)
+			toast(World.Stations[stationId].label .. ": se abrirá más adelante")
 		end
 	end,
 	openSanctuary = Modals.sanctuary,

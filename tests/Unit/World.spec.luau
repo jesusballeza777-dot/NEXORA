@@ -117,6 +117,174 @@ T.describe("Valle Copal en Roblox (ValleBuilder)", function()
 	end)
 end)
 
+-- Caja (en planta) de una pieza: exacta si solo gira en Y; si no, su AABB
+local function footprint(part: any): (number, number, number, number, number, number)
+	local cf, s = part.CFrame, part.Size
+	local x, y, z, r00, r01, r02, r10, r11, r12, r20, r21, r22 = cf:GetComponents()
+	local hx = math.abs(r00) * s.X / 2 + math.abs(r01) * s.Y / 2 + math.abs(r02) * s.Z / 2
+	local hy = math.abs(r10) * s.X / 2 + math.abs(r11) * s.Y / 2 + math.abs(r12) * s.Z / 2
+	local hz = math.abs(r20) * s.X / 2 + math.abs(r21) * s.Y / 2 + math.abs(r22) * s.Z / 2
+	return x, y, z, hx, hy, hz
+end
+
+T.describe("Torre del Nexo, estaciones y Gabinete", function()
+	T.it("las siete estaciones existen, cada una con su prompt sobre su posición de juego", function()
+		local sb = buildWorld()
+		local folder = sb.workspace.ValleCopal.Stations
+		local count = 0
+		for id, st in pairs(World.Stations) do
+			count += 1
+			local model = folder:FindFirstChild(id)
+			if not model then
+				error("Falta la estación " .. id)
+			end
+			local prompt = nil
+			for _, d in ipairs(model:GetDescendants()) do
+				if d:IsA("ProximityPrompt") and d.Name == "Station" then
+					prompt = d
+				end
+			end
+			if not prompt then
+				error("Estación sin prompt: " .. id)
+			end
+			local booth = prompt.Parent
+			expect(booth:GetAttribute("StationId")).toBe(id)
+			expect(prompt.MaxActivationDistance).toBe(st.radius)
+			expect(flat(st.position, booth.CFrame.X, booth.CFrame.Z) < 6).toBe(true)
+			expect(model:GetAttribute("AssetStatus")).toBe("Blockout")
+		end
+		expect(count).toBe(7)
+		-- Las que aún no abren avisan en el cliente en vez de quedar mudas
+		local boot = fs.readFile("src/StarterPlayer/StarterPlayerScripts/ClientBootstrap.client.luau")
+		expect(string.find(boot, "se abrirá más adelante", 1, true) ~= nil).toBe(true)
+	end)
+
+	T.it("el Gran Nexo mide 90–120 studs y su corazón está etiquetado", function()
+		local sb = buildWorld()
+		local tree = sb.workspace.ValleCopal.GranNexo
+		local top = 0
+		for _, d in ipairs(tree:GetDescendants()) do
+			if d:IsA("BasePart") then
+				local _, y, _, _, hy = footprint(d)
+				top = math.max(top, y + hy)
+			end
+		end
+		expect(top >= 90 and top <= 120).toBe(true)
+		local heart = tree:FindFirstChild("NexoHeart")
+		expect(heart ~= nil).toBe(true)
+		expect(heart:HasTag("AmbientHeart")).toBe(true)
+		expect(heart:FindFirstChild("NexoMenu") ~= nil).toBe(true)
+	end)
+
+	T.it("el Gabinete que Camina está etiquetado, con seis patas y sin colisión", function()
+		local sb = buildWorld()
+		local gab = sb.workspace.ValleCopal:FindFirstChild("GabineteQueCamina")
+		expect(gab ~= nil).toBe(true)
+		expect(gab:HasTag("GabineteWalk")).toBe(true)
+		local legs = 0
+		for _, c in ipairs(gab:GetChildren()) do
+			if string.match(c.Name, "^Leg%d$") then
+				legs += 1
+				expect(c:GetAttribute("Side") ~= nil).toBe(true)
+			end
+		end
+		expect(legs).toBe(6)
+		local drawers = 0
+		for _, d in ipairs(gab:GetDescendants()) do
+			if d:IsA("BasePart") then
+				expect(d.CanCollide).toBe(false)
+				expect(d.CanQuery).toBe(false)
+				if d.Material == harness.sandbox.roblox.Enum.Material.WoodPlanks then
+					drawers += 1
+				end
+			end
+		end
+		expect(drawers >= 20).toBe(true) -- cajones al frente y costillas a los lados
+	end)
+
+	T.it("la calzada del Gabinete queda libre: nada de la Torre se cruza en su ruta", function()
+		local sb = buildWorld()
+		local g = Landscape.Gabinete
+		local cx, cz = World.GranNexo.position[1], World.GranNexo.position[3]
+		local inner, outer = g.radius - g.halfSpan, g.radius + g.halfSpan
+		local valle = sb.workspace.ValleCopal
+		for _, folder in ipairs({ valle.Stations, valle.GranNexo, valle.Plaza }) do
+			for _, d in ipairs(folder:GetDescendants()) do
+				if d:IsA("BasePart") and not d:IsDescendantOf(valle.Stations.Basamento) then
+					-- Muestras sobre el volumen de la pieza (5 × 5 × 5)
+					local cf, size = d.CFrame, d.Size
+					for a = -2, 2 do
+						for b = -2, 2 do
+							for c = -2, 2 do
+								local p = cf
+									* harness.sandbox.roblox.Vector3.new(a / 4 * size.X, b / 4 * size.Y, c / 4 * size.Z)
+								local r = math.sqrt((p.X - cx) ^ 2 + (p.Z - cz) ^ 2)
+								if r > inner and r < outer and p.Y > 2 and p.Y < 27 then
+									error(
+										string.format(
+											"%s invade la calzada (r = %.1f, y = %.1f)",
+											d:GetFullName(),
+											r,
+											p.Y
+										)
+									)
+								end
+							end
+						end
+					end
+				end
+			end
+		end
+		-- Los huevos quedan bajo el vientre del Gabinete (no los pisa)
+		for _, egg in ipairs(valle.StarterEggs:GetChildren()) do
+			if egg:IsA("BasePart") then
+				local _, y, _, _, hy = footprint(egg)
+				expect(y + hy < 8).toBe(true)
+			end
+		end
+	end)
+
+	T.it("nada bloquea el spawn ni la vista del spawn al corazón del Nexo", function()
+		local sb = buildWorld()
+		local sp = World.SpawnPoint
+		local heart = sb.workspace.ValleCopal.GranNexo.NexoHeart.CFrame.Position
+		local eye = { sp[1], sp[2] + 5, sp[3] }
+		for k = 0, 40 do -- el terreno tampoco se interpone
+			local t = k / 40
+			local px, pz = eye[1] + (heart.X - eye[1]) * t, eye[3] + (heart.Z - eye[3]) * t
+			expect(Landform.heightAt(px, pz) < eye[2] + (heart.Y - eye[2]) * t).toBe(true)
+		end
+		for _, d in ipairs(sb.workspace:GetDescendants()) do
+			if d:IsA("BasePart") and d.ClassName ~= "Terrain" and d.CanCollide and d.Transparency < 1 then
+				local x, y, z, hx, hy, hz = footprint(d)
+				-- Cilindro libre de 6 studs alrededor del spawn (por encima del suelo)
+				local qx, qz = math.max(math.abs(sp[1] - x) - hx, 0), math.max(math.abs(sp[3] - z) - hz, 0)
+				if math.sqrt(qx * qx + qz * qz) < 6 and y + hy > 0.6 and y - hy < 10 then
+					error("Bloquea el spawn: " .. d:GetFullName())
+				end
+			end
+			if
+				d:IsA("BasePart")
+				and d.ClassName ~= "Terrain"
+				and d.Transparency < 0.5
+				and not d:IsDescendantOf(sb.workspace.ValleCopal.GranNexo)
+			then
+				-- La línea de mirada del spawn al corazón no atraviesa ninguna pieza opaca
+				local x, y, z, hx, hy, hz = footprint(d)
+				for k = 0, 40 do
+					local t = k / 40
+					local px = eye[1] + (heart.X - eye[1]) * t
+					local py = eye[2] + (heart.Y - eye[2]) * t
+					local pz = eye[3] + (heart.Z - eye[3]) * t
+					if math.abs(px - x) < hx and math.abs(py - y) < hy and math.abs(pz - z) < hz then
+						error("Tapa la vista del spawn al Gran Nexo: " .. d:GetFullName())
+					end
+				end
+			end
+		end
+	end)
+end)
+
 T.describe("Paisaje de Valle Copal (Landform)", function()
 	T.it("el río, el lago y la cascada son agua de terreno", function()
 		local sb = buildWorld()
