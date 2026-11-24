@@ -27,6 +27,9 @@ local function shapeOf(part: any): string
 	if mesh and mesh.MeshType == roblox.Enum.MeshType.Sphere then
 		return "Ellipsoid"
 	end
+	if part:IsA("WedgePart") then
+		return "Wedge"
+	end
 	if part.Shape == roblox.Enum.PartType.Cylinder then
 		return "Cylinder"
 	end
@@ -130,13 +133,19 @@ for _, d in ipairs(built.root:GetDescendants()) do
 end
 local terrainOps = {}
 local materialColors = {}
+local function cfComps(cf: any): { number }
+	local comps = { cf:GetComponents() }
+	for i, v in ipairs(comps) do
+		comps[i] = round(v)
+	end
+	return comps
+end
 for _, call in ipairs(worldBox.terrainCalls) do
 	local a = call.args
-	if call.method == "FillBlock" then
-		local comps = { a[1]:GetComponents() }
+	if call.method == "FillBlock" or call.method == "FillWedge" then
 		table.insert(terrainOps, {
-			kind = "Block",
-			cf = comps,
+			kind = if call.method == "FillBlock" then "Block" else "Wedge",
+			cf = cfComps(a[1]),
 			size = { a[2].X, a[2].Y, a[2].Z },
 			material = a[3].Name,
 		})
@@ -147,8 +156,37 @@ for _, call in ipairs(worldBox.terrainCalls) do
 			radius = a[2],
 			material = a[3].Name,
 		})
+	elseif call.method == "FillCylinder" then
+		table.insert(terrainOps, {
+			kind = "Cylinder",
+			cf = cfComps(a[1]),
+			height = a[2],
+			radius = a[3],
+			material = a[4].Name,
+		})
 	elseif call.method == "SetMaterialColor" then
 		materialColors[a[1].Name] = { a[2].R, a[2].G, a[2].B }
+	end
+end
+-- Luces y emisores (la vista los dibuja como halos y nubes de puntos aproximadas)
+local lights, emitters = {}, {}
+for _, d in ipairs(built.root:GetDescendants()) do
+	local holder = d.Parent
+	local pos = if holder and holder:IsA("BasePart") then holder.CFrame.Position else nil
+	if pos and d:IsA("PointLight") then
+		table.insert(
+			lights,
+			{ pos = { pos.X, pos.Y, pos.Z }, range = d.Range, color = { d.Color.R, d.Color.G, d.Color.B } }
+		)
+	elseif pos and d:IsA("ParticleEmitter") then
+		local c = d.Color.Keypoints[1].Value
+		table.insert(emitters, {
+			pos = { pos.X, pos.Y, pos.Z },
+			size = { holder.Size.X, holder.Size.Y, holder.Size.Z },
+			rate = d.Rate,
+			color = { c.R, c.G, c.B },
+			particle = d.Size.Keypoints[1].Value,
+		})
 	end
 end
 local L = worldBox.lighting
@@ -158,6 +196,8 @@ emit("tools/roblox-preview/world.html", "build/roblox-preview/World.html", {
 	parts = worldParts,
 	terrain = terrainOps,
 	materialColors = materialColors,
+	lights = lights,
+	emitters = emitters,
 	water = { color = { t.WaterColor.R, t.WaterColor.G, t.WaterColor.B }, transparency = t.WaterTransparency },
 	lighting = {
 		clockTime = L.ClockTime,
