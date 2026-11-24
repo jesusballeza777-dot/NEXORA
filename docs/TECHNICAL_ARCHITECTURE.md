@@ -67,7 +67,9 @@ flowchart TB
 
 La migración 1→2 reconstruye la colección a partir de las mascotas y de los Opacos vencidos, y da ★ a las etapas ya superadas (prueba en `Phase2Flow.spec`). Las recompensas pendientes pueden llevar cofres, huevos (con la especie ya fijada), decoración, títulos y marcos. `RewardRules.claim` comprueba el espacio antes de aplicar nada.
 
-**Reglas de la Fase 2** (`Server/Domain`): `CollectionRules`, `EggRules`, `ChestRules`, `QuestRules`, `DecorRules`, `HistoryRules` y `EncounterRules` ampliado. `Actions` emite los eventos internos que mueven los encargos y la analítica.
+**Perfil v3 (`CURRENT_VERSION = 3`).** Añade `achievements[id] = hora del servidor` y el contador `counters.eggsHatched`. La migración 2→3 reconstruye el contador con los monstruos nacidos de huevo. `AchievementRules.refresh` se ejecuta al final de cada caso de uso (`Actions.finish`) y al cargar: marca los logros cumplidos y crea su recompensa pendiente `achievement:<id>`. Si se perdiera la marca, el libro de recompensas impide un segundo premio.
+
+**Reglas de la Fase 2** (`Server/Domain`): `CollectionRules`, `EggRules`, `ChestRules`, `QuestRules`, `DecorRules`, `HistoryRules`, `AchievementRules` y `EncounterRules` ampliado. `Actions` emite los eventos internos que mueven los encargos y la analítica.
 
 Registro en DataStore: `{ meta = { lock = {jobId, at}, writes, updatedAt }, data = Profile }`.
 

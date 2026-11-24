@@ -285,3 +285,64 @@ T.describe("Catálogo maestro (Genesis F2 §6.1)", function()
 		expect(Catalog.entry("lumbrela").availability[1]).toBe("Bloqueada en la beta (sin arte aprobado)")
 	end)
 end)
+
+T.describe("Logros (propuesta D-033)", function()
+	local Achievements = harness.get("ReplicatedStorage.Shared.Config.Achievements")
+	local Economy = harness.get("ReplicatedStorage.Shared.Config.Economy")
+	local Catalog = harness.get("ReplicatedStorage.Shared.Domain.Catalog")
+	T.it("premios fijos y válidos, sin azar, con las Gemas de la Biblia (p. 91)", function()
+		expect(#Achievements.Order >= 5).toBe(true)
+		local seen = {}
+		for _, id in ipairs(Achievements.Order) do
+			local a = Achievements.ById[id]
+			expect(a ~= nil).toBe(true)
+			expect(seen[id]).toBe(nil)
+			seen[id] = true
+			expect(a.goal >= 1).toBe(true)
+			expect(a.reward.currencies.Gemas).toBe(Achievements.GemsPerAchievement)
+			for cur in pairs(a.reward.currencies) do
+				expect(Economy.Currencies[cur] ~= nil).toBe(true)
+			end
+			for _, c in ipairs(a.reward.chests or {}) do
+				expect(Chests.ById[c].mode).toBe("Fixed")
+				expect(Chests.ById[c].activeInBeta).toBe(true)
+			end
+			for _, sp in ipairs(a.reward.eggs or {}) do
+				expect(Catalog.entry(sp).playableInBeta).toBe(true)
+			end
+		end
+	end)
+	T.it("cada meta se puede cumplir con el contenido del Acto I", function()
+		local reach = { EggsHatched = math.huge, Tallados = 0, SpeciesDiscovered = 0, SpeciesRestored = 0, Stars = 0 }
+		for _, e in ipairs(Catalog.all()) do
+			if e.playableInBeta then
+				reach.SpeciesDiscovered += 1
+				reach.Tallados += 1
+			end
+		end
+		local restorable = {}
+		for _, id in ipairs(Encounters.Order) do
+			local enc = Encounters.ById[id]
+			if enc.act == "ActoI" then
+				reach.Stars += 3
+				for _, opp in ipairs(enc.opponents) do
+					if opp.speciesId and Species.ById[opp.speciesId] then
+						restorable[opp.speciesId] = true
+					end
+				end
+			end
+		end
+		for _ in pairs(restorable) do
+			reach.SpeciesRestored += 1
+		end
+		reach.Guardians = 0
+		for _ in pairs(Guardians.ById) do
+			reach.Guardians += 1
+		end
+		for _, id in ipairs(Achievements.Order) do
+			local a = Achievements.ById[id]
+			expect(reach[a.metric] ~= nil).toBe(true)
+			expect(a.goal <= reach[a.metric]).toBe(true)
+		end
+	end)
+end)

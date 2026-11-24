@@ -17,6 +17,7 @@ local EggRules = require(script.Parent.EggRules)
 local QuestRules = require(script.Parent.QuestRules)
 local ChestRules = require(script.Parent.ChestRules)
 local CollectionRules = require(script.Parent.CollectionRules)
+local AchievementRules = require(script.Parent.AchievementRules)
 local Incubation = require(Shared.Config.Incubation)
 local Chests = require(Shared.Config.Chests)
 
@@ -274,6 +275,7 @@ function ProfileView.build(p: Profile, now: number): { [string]: any }
 		titles = p.titles,
 		frames = p.frames,
 		guardians = p.guardians,
+		achievements = AchievementRules.view(p),
 	}
 end
 

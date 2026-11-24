@@ -85,6 +85,7 @@ local function mountAll(view: any, petIds: { string })
 		Collection.bestiary(sp)
 	end
 	Collection.codex()
+	Collection.achievements()
 	Breeding.incubator()
 	Breeding.chests()
 	Breeding.quests()

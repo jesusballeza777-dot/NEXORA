@@ -14,7 +14,7 @@ Encargos, santuario ampliado y el Acto I completo hasta Copalia (`docs/PHASE_2_I
 |---|---|---|
 | Proyecto Roblox (Luau `--!strict`, Rojo) | `src/` | Completo para la Fase 1; pendiente de validar en Studio |
 | Datos de la Biblia (50 especies, 12 elementos, 72 ataques…) | `src/ReplicatedStorage/Shared/Config` | ✅ |
-| Pruebas (unitarias, integración y humo de interfaz, Lune) | `tests/` | ✅ 144 pruebas |
+| Pruebas (unitarias, integración y humo de interfaz, Lune) | `tests/` | ✅ 151 pruebas |
 | Catálogo de contenido (generado desde la config) | `docs/CONTENT_CATALOG.md` | ✅ |
 | Vista previa web jugable (mismas reglas y motor) | `tools/web-preview/dist/NEXORA_Preview.html` | ✅ |
 | Vista de los modelos y el valle **de Roblox** (código real, sin Studio) | `lune run tools/roblox-preview/build` → `build/roblox-preview/` | ✅ |

@@ -42,6 +42,7 @@ function openNexoMenu() {
     { id: "quests", em: "📋", name: "Encargos", badge: n.quests, go: () => openQuests() },
     { id: "album", em: "📖", name: "Álbum", go: () => openAlbum() },
     { id: "codex", em: "📜", name: "Códice", go: () => openCodex() },
+    { id: "achievements", em: "🏅", name: "Logros", badge: n.achievements, go: () => openAchievements() },
     { id: "sanctuary", em: "🏡", name: "Santuario", go: () => openSanctuary() },
     { id: "team", em: "🐾", name: "Monstruos", badge: companion() && Leveling.canEvolve(companion())[0] ? "!" : 0, go: () => openSanctuary("vivero") },
     { id: "travel", em: "🧭", name: "Viajar", go: () => openTravel() },
@@ -649,6 +650,37 @@ function codexHint(id) {
   const c = Object.values(CFG.Chests.ById).find((x) => x.fixed && (x.fixed.codex || []).includes(id)); if (c) return `Abre el ${c.name}`;
   return "Sigue explorando";
 }
+// ---------------- Logros (D-033) ----------------
+function achievementRewardLines(def) {
+  const out = [];
+  if (def.reward.currencies && def.reward.currencies.Gemas) out.push(`💎 ${fmt(def.reward.currencies.Gemas)} Gemas`);
+  for (const c of def.reward.chests || []) out.push(`🧰 ${esc(CFG.Chests.ById[c].name)}`);
+  for (const sp of def.reward.eggs || []) out.push(`🥚 Huevo de ${esc(speciesName(sp))}`);
+  for (const t of def.reward.titles || []) out.push(`🎖️ Título «${esc(t)}»`);
+  return out.join(" · ");
+}
+function openAchievements() {
+  const list = AchievementRules.view(P);
+  const done = list.filter((a) => a.unlockedAt != null).length;
+  const titles = Object.keys(P.titles.owned || {}).sort();
+  openScreen("🏅", "Logros", `${done}/${list.length} conseguidos · el premio se ve antes de conseguirlo y es siempre el mismo`,
+    `<div class="quest-list">${list.map((a) => { const d = CFG.Achievements.ById[a.id], got = a.unlockedAt != null;
+      return `<div class="quest ach ${got ? (a.rewardPending ? "done" : "claimed") : ""}"><span class="qd d-Easy">${d.symbol}</span><b>${esc(d.name)}</b><small>${esc(d.description)}</small>
+        <div class="bar"><i style="width:${(a.progress / a.goal) * 100}%"></i></div><div class="kv"><span>${fmt(a.progress)} / ${fmt(a.goal)}</span></div><div class="ach-rw">${achievementRewardLines(d)}</div>
+        ${a.rewardPending ? `<button class="btn small" data-claim="${a.rewardId}">Reclamar premio</button>` : got ? '<div class="q-ok">✔ Conseguido</div>' : ""}</div>`; }).join("")}</div>
+    <div class="sec-title">Títulos</div>
+    ${titles.length ? `<div class="title-row">${titles.map((t) => `<button class="btn small ${P.titles.equipped === t ? "" : "secondary"}" data-title="${esc(t)}">${P.titles.equipped === t ? "✔ " : ""}${esc(t)}</button>`).join("")}</div>`
+      : '<div class="note-box">Aún no tienes títulos. Algunos logros y las estrellas del acto dan uno.</div>'}`,
+  (m) => {
+    m.querySelectorAll("[data-claim]").forEach((b) => b.addEventListener("click", () => showReward(b.dataset.claim)));
+    m.querySelectorAll("[data-title]").forEach((b) => b.addEventListener("click", () => {
+      const t = b.dataset.title, r = run("equipTitle", P.titles.equipped === t ? null : t);
+      if (!r.ok) return toast("⚠️", errText(r.err));
+      refreshUI(); openAchievements();
+    }));
+  });
+}
+
 function openCodex() {
   const KIND = [["Lore", "📜 Cartas de lore"], ["Guardian", "🪶 Guardianes"], ["Velada", "🌘 Pistas Veladas"]];
   const got = CFG.Codex.Order.filter((id) => P.codex[id] != null).length;

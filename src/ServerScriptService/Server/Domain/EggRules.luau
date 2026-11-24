@@ -137,6 +137,7 @@ function EggRules.hatch(p: Profile, slotIndex: number, now: number): Result.Resu
 	end
 	local petId = (created.data :: any).petId
 	p.pets[petId].traits = table.clone(egg.traits)
+	p.counters.eggsHatched = (p.counters.eggsHatched or 0) + 1
 	slot.eggId = nil
 	p.eggs[egg.id] = nil
 	local found = CollectionRules.obtain(p, egg.speciesId, "Brote", now)

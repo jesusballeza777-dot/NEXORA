@@ -325,3 +325,8 @@ body.modal-on #toasts { top: auto; bottom: max(12px, env(safe-area-inset-bottom)
   .stat-change { grid-template-columns: 44px 1fr 20px 1fr 1fr; font-size: 14px; }
   #battle .stage-tag { top: auto; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 160px); left: auto; right: 10px; }
 }
+
+/* Logros */
+.quest.ach .qd { font-size: 16px; }
+.quest.ach .ach-rw { font-size: 14px; font-weight: 700; color: #5a3e2a; }
+.title-row { display: flex; flex-wrap: wrap; gap: 8px; }

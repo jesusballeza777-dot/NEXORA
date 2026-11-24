@@ -1,6 +1,7 @@
 --!strict
--- Álbum del Nexo, Bestiario y Códice (Fase 2). Solo muestra lo que el servidor registró
--- (view.collection / view.codex); los textos vienen de Config (SpeciesLore, Codex).
+-- Álbum del Nexo, Bestiario, Códice y Logros (Fase 2). Solo muestra lo que el servidor
+-- registró (view.collection / view.codex / view.achievements); los textos vienen de
+-- Config (SpeciesLore, Codex, Achievements).
 -- Rendimiento: el Álbum nunca construye los 50 modelos a la vez. Cada carta descubierta
 -- recibe su retrato 3D solo cuando entra en la zona visible del desplazamiento.
 
@@ -13,6 +14,8 @@ local Rarities = require(Config:WaitForChild("Rarities"))
 local Elements = require(Config:WaitForChild("Elements"))
 local Visuals = require(Config:WaitForChild("Visuals"))
 local Codex = require(Config:WaitForChild("Codex"))
+local Achievements = require(Config:WaitForChild("Achievements"))
+local Chests = require(Config:WaitForChild("Chests"))
 
 local UI = script.Parent.Parent
 local Kit = require(UI.Kit)
@@ -340,6 +343,87 @@ function Collection.codex()
 							TextXAlignment = Enum.TextXAlignment.Left,
 						}),
 					})
+				end
+			end
+		end
+	end)
+end
+
+-- Premio de un logro en una línea (fijo y visible antes de conseguirlo, D-033)
+local function achievementReward(def: any): string
+	local parts = {}
+	if def.reward.currencies and def.reward.currencies.Gemas then
+		table.insert(parts, string.format("💎 %d Gemas", def.reward.currencies.Gemas))
+	end
+	for _, c in ipairs(def.reward.chests or {}) do
+		table.insert(parts, "🎁 " .. Chests.ById[c].name)
+	end
+	for _, sp in ipairs(def.reward.eggs or {}) do
+		table.insert(parts, "🥚 Huevo de " .. Species.ById[sp].broteName)
+	end
+	for _, t in ipairs(def.reward.titles or {}) do
+		table.insert(parts, "🏅 Título «" .. t .. "»")
+	end
+	return table.concat(parts, " · ")
+end
+
+function Collection.achievements()
+	local view = State.view
+	if not view then
+		return
+	end
+	local ui = Modals.UI
+	Modals.open(function(content)
+		ui.title(content, "Logros")
+		local done = 0
+		for _, a in ipairs(view.achievements) do
+			if a.unlockedAt then
+				done += 1
+			end
+		end
+		ui.sub(
+			content,
+			string.format("%d de %d · el premio está a la vista antes de conseguirlo", done, #view.achievements)
+		)
+		for _, a in ipairs(view.achievements) do
+			local def = Achievements.ById[a.id]
+			if def then
+				local unlocked = a.unlockedAt ~= nil
+				local bar = Kit.bar(a.progress / a.goal, if unlocked then Kit.Color.copalGlow else nil, 10)
+				bar.LayoutOrder = 3
+				local panel = Kit.panel({
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					BackgroundColor3 = if unlocked then Kit.Color.cocoa700 else Kit.Color.cocoa900,
+					LayoutOrder = ui.order(),
+					Parent = content,
+					Kit.padding(10),
+					Kit.list(Enum.FillDirection.Vertical, 6, Enum.HorizontalAlignment.Left),
+					Kit.text((if unlocked then "✔ " else "") .. def.symbol .. "  " .. def.name, 17, {
+						FontFace = Kit.Font.title,
+						TextXAlignment = Enum.TextXAlignment.Left,
+						LayoutOrder = 1,
+					}),
+					Kit.text(string.format("%s  (%d/%d)", def.description, a.progress, a.goal), 15, {
+						TextColor3 = Kit.Color.muted,
+						AutomaticSize = Enum.AutomaticSize.Y,
+						Size = UDim2.new(1, 0, 0, 0),
+						TextXAlignment = Enum.TextXAlignment.Left,
+						LayoutOrder = 2,
+					}),
+					bar,
+					Kit.text(achievementReward(def), 14, {
+						TextColor3 = Kit.Color.copalSoft,
+						AutomaticSize = Enum.AutomaticSize.Y,
+						Size = UDim2.new(1, 0, 0, 0),
+						TextXAlignment = Enum.TextXAlignment.Left,
+						LayoutOrder = 4,
+					}),
+				})
+				if a.rewardPending then
+					Kit.button("Reclamar premio", "primary", function()
+						Modals.reward(a.rewardId)
+					end, { LayoutOrder = 5, Parent = panel })
 				end
 			end
 		end

@@ -23,6 +23,7 @@ local EggRules = require(script.Parent.EggRules)
 local ChestRules = require(script.Parent.ChestRules)
 local QuestRules = require(script.Parent.QuestRules)
 local DecorRules = require(script.Parent.DecorRules)
+local AchievementRules = require(script.Parent.AchievementRules)
 local Sanctuary = require(Shared.Config.Sanctuary)
 
 type Profile = Types.Profile
@@ -61,11 +62,17 @@ end
 
 local function finish(p: Profile, r: Result.Result, analytics: { any }, now: number): Result.Result
 	local steps = OnboardingRules.refresh(p, now)
+	-- Logros: se evalúan con el perfil ya actualizado por el caso de uso
+	local unlocked = AchievementRules.refresh(p, now)
+	for _, id in ipairs(unlocked) do
+		table.insert(analytics, { name = "achievement_unlocked", fields = { achievement = id } })
+	end
 	if r.ok then
 		local data = r.data or {}
 		data.analytics = analytics
 		data.onboarding = steps
 		data.onboardingStep = p.onboarding.step
+		data.achievements = unlocked
 		r.data = data
 	end
 	for _, s in ipairs(steps) do

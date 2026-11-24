@@ -38,6 +38,7 @@ local names = {
 	"Codex",
 	"Decor",
 	"SpeciesLore",
+	"Achievements",
 }
 local config = {}
 for _, name in ipairs(names) do

@@ -32,6 +32,12 @@ function QuickMenu.open(openTree: () -> (), openSanctuary: () -> ())
 			questsReady += 1
 		end
 	end
+	local achievementsReady = 0
+	for _, a in ipairs(view.achievements or {}) do
+		if a.rewardPending then
+			achievementsReady += 1
+		end
+	end
 	local entries = {
 		{ "🗺", "Aventura", Adventure.map, 0 },
 		{
@@ -46,6 +52,7 @@ function QuickMenu.open(openTree: () -> (), openSanctuary: () -> ())
 		{ "🎁", "Cofres", Breeding.chests, #view.chests },
 		{ "📋", "Encargos", Breeding.quests, questsReady },
 		{ "📜", "Códice", Collection.codex, 0 },
+		{ "🏅", "Logros", Collection.achievements, achievementsReady },
 		{ "🏡", "Santuario", openSanctuary, 0 },
 		{ "🪴", "Decorar", SanctuaryPlus.decor, 0 },
 		{ "🏆", "Vitrina", SanctuaryPlus.showcase, 0 },

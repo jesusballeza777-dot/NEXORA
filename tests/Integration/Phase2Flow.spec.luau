@@ -16,6 +16,8 @@ local QuestRules = harness.get("ServerScriptService.Server.Domain.QuestRules")
 local EncounterRules = harness.get("ServerScriptService.Server.Domain.EncounterRules")
 local CollectionRules = harness.get("ServerScriptService.Server.Domain.CollectionRules")
 local ProfileView = harness.get("ServerScriptService.Server.Domain.ProfileView")
+local AchievementRules = harness.get("ServerScriptService.Server.Domain.AchievementRules")
+local Achievements = harness.get("ReplicatedStorage.Shared.Config.Achievements")
 local Encounters = harness.get("ReplicatedStorage.Shared.Config.Encounters")
 local Incubation = harness.get("ReplicatedStorage.Shared.Config.Incubation")
 
@@ -78,6 +80,7 @@ T.describe("Fase 2 · migración del perfil 1 → 2", function()
 			"titles",
 			"frames",
 			"guardians",
+			"achievements",
 		}) do
 			legacy[k] = nil
 		end
@@ -85,7 +88,7 @@ T.describe("Fase 2 · migración del perfil 1 → 2", function()
 		legacy.schemaVersion = 1
 		local monedas = legacy.currencies.Monedas
 		local migrated = ProfileSchema.migrate(legacy, Play.now)
-		expect(migrated.schemaVersion).toBe(2)
+		expect(migrated.schemaVersion).toBe(ProfileSchema.CURRENT_VERSION)
 		expect(migrated.currencies.Monedas).toBe(monedas)
 		expect(migrated.collection.xolumi.broteAt ~= nil).toBe(true) -- su inicial
 		expect(migrated.collection.comalu.restoredAt ~= nil).toBe(true) -- Opaco vencido
@@ -312,6 +315,12 @@ T.describe("Fase 2 · Acto I completo", function()
 		for _, sp in ipairs({ "barrock", "vainas", "zunzi", "pabilo", "lumbro", "dienton" }) do
 			expect(CollectionRules.bestiaryTier(p.collection[sp]) >= 2).toBe(true)
 		end
+		-- Logros que llegan solos al recorrer el acto (D-033)
+		for _, id in ipairs({ "curiosidad", "niebla_disipada", "naturalista", "cielo_de_copal", "raiz_restaurada" }) do
+			expect(p.achievements[id] ~= nil).toBe(true)
+		end
+		claimAll(p)
+		expect(p.titles.owned["Amigo de Copalia"] ~= nil).toBe(true)
 		expect(ProfileSchema.validate(p)).toBe(true)
 	end)
 	T.it("las 3 estrellas de una región dan Cofre de Oro y abren la secreta", function()
@@ -399,5 +408,72 @@ T.describe("Fase 2 · santuario", function()
 		expect(Actions.setTeam(p, { "U914-99" }, Play.ctx()).err).toBe("PetNotOwned")
 		expect(Actions.setTeam(p, {}, Play.ctx()).err).toBe("BadTeamSize")
 		expect(Actions.setTeam(p, { petId }, Play.ctx()).ok).toBe(true)
+	end)
+end)
+
+T.describe("Fase 2 · logros", function()
+	T.it("se cumplen por eventos del servidor y su premio se reclama una sola vez", function()
+		local p = Play.tutorialProfile(920)
+		expect(p.achievements.primer_latido).toBe(nil)
+		local g = EggRules.grant(p, "pabilo", { kind = "Test", at = Play.now }, Play.now)
+		Actions.startIncubation(p, g.data.eggId, 1, Play.ctx())
+		Play.advance(Incubation.SecondsByRarity.Comun + 1)
+		local h = Actions.hatchEgg(p, 1, Play.ctx())
+		expect(h.ok).toBe(true)
+		expect(table.find(h.data.achievements, "primer_latido") ~= nil).toBe(true)
+		expect(p.counters.eggsHatched).toBe(1)
+		local rewardId = AchievementRules.rewardId("primer_latido")
+		local pending = p.rewards.pending[rewardId]
+		expect(pending.source.kind).toBe("Achievement")
+		expect(pending.chests).toEqual({ "Madera" })
+		local gems = p.currencies.Gemas
+		expect(Actions.claimReward(p, rewardId, Play.ctx()).ok).toBe(true)
+		expect(p.currencies.Gemas).toBe(gems + Achievements.GemsPerAchievement)
+		expect(Actions.claimReward(p, rewardId, Play.ctx()).ok).toBe(false)
+		-- Volver a entrar no lo repite
+		local again = Actions.onLoad(p, Play.ctx())
+		expect(#again.data.achievements).toBe(0)
+		expect(p.rewards.pending[rewardId]).toBe(nil)
+		-- La vista muestra el progreso acotado a la meta
+		local view = ProfileView.build(p, Play.now)
+		expect(#view.achievements).toBe(#Achievements.Order)
+		for _, a in ipairs(view.achievements) do
+			expect(a.progress <= a.goal).toBe(true)
+			if a.id == "primer_latido" then
+				expect(a.unlockedAt ~= nil).toBe(true)
+				expect(a.rewardPending).toBe(false)
+			end
+		end
+	end)
+	T.it("migración 2 → 3: un perfil que ya cumplía la meta recibe el premio al entrar, una vez", function()
+		local p, starter = Play.tutorialProfile(921)
+		Play.boost(p, starter, 20)
+		p.pets[starter].bond = 40
+		local evolved = Actions.evolve(p, starter, Play.ctx())
+		expect(evolved.ok).toBe(true)
+		expect(table.find(evolved.data.achievements, "primer_tallado") ~= nil).toBe(true)
+		-- Simular una cuenta guardada en la v2: sin logros, sin contador, sin premio
+		local legacy = p
+		legacy.achievements = nil
+		legacy.counters.eggsHatched = nil
+		legacy.rewards.pending[AchievementRules.rewardId("primer_tallado")] = nil
+		legacy.schemaVersion = 2
+		local migrated = ProfileSchema.migrate(legacy, Play.now)
+		expect(migrated.schemaVersion).toBe(ProfileSchema.CURRENT_VERSION)
+		expect(migrated.counters.eggsHatched).toBe(0) -- el inicial no nació en la incubadora
+		expect(next(migrated.achievements)).toBe(nil)
+		local r = Actions.onLoad(migrated, Play.ctx())
+		expect(table.find(r.data.achievements, "primer_tallado") ~= nil).toBe(true)
+		local rewardId = AchievementRules.rewardId("primer_tallado")
+		expect(Actions.claimReward(migrated, rewardId, Play.ctx()).ok).toBe(true)
+		expect(migrated.titles.owned.Tallador ~= nil).toBe(true)
+		-- Si se perdiera la marca, el libro de recompensas impide un segundo premio
+		migrated.achievements.primer_tallado = nil
+		local gems = migrated.currencies.Gemas
+		Actions.onLoad(migrated, Play.ctx())
+		expect(migrated.achievements.primer_tallado ~= nil).toBe(true)
+		expect(migrated.rewards.pending[rewardId]).toBe(nil)
+		expect(migrated.currencies.Gemas).toBe(gems)
+		expect(ProfileSchema.validate(migrated)).toBe(true)
 	end)
 end)

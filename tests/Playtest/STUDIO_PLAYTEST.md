@@ -78,3 +78,5 @@ Marca cada punto solo si lo ejecutaste. Usa el almacén de pruebas y `Dev.GrantX
 | F2-16 | Decorar el lote y elegir vitrina | Objetos visibles para otros jugadores en Team Test | ☐ |
 | F2-17 | Dos jugadores en Team Test | Cada uno ve sus cofres, huevos y encargos; nadie puede abrir lo del otro | ☐ |
 | F2-18 | MicroProfiler en móvil emulado | Sin picos al abrir el Álbum ni en el combate contra Copalia | ☐ |
+| F2-19 | Eclosionar el primer huevo y abrir Logros | Aviso «Logro: Primer latido»; la insignia aparece en el menú; reclamar da 10 Gemas y un Cofre de Madera una sola vez | ☐ |
+| F2-20 | Entrar con un perfil v2 guardado en el DataStore de pruebas | Se migra a v3 sin pérdidas; los logros ya cumplidos llegan con su premio una vez | ☐ |

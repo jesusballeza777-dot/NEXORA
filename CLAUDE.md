@@ -36,7 +36,8 @@ La lógica pura no puede usar APIs de motor (`task`, `Instance`, `workspace`…)
 
 ## Fase 2 (content beta)
 - Plan, módulos y estado: `docs/PHASE_2_IMPLEMENTATION.md`. Decisiones D-022 a D-032 en `DESIGN_DECISIONS.md`.
-- Perfil **v2**. Cada sección nueva lleva su regla pura en `Server/Domain` y su caso de uso en `Actions`.
+- Perfil **v3** (v2 de la Fase 2 + logros). Cada sección nueva lleva su regla pura en `Server/Domain` y su caso de uso en `Actions`.
+- **Logros:** el progreso se calcula en el servidor a partir del perfil (`AchievementRules.refresh` al final de cada caso de uso); premios fijos sin azar (D-033).
 - **Progreso de encargos:** solo por eventos internos (`QuestRules.track` desde `Actions`), nunca por el cliente.
 - **Cofres:** contenido y especie del huevo fijados al obtenerlos. El modo aleatorio solo con tabla validada (`ChestRules.validateTable`) y aprobada.
 - **Interfaz Roblox nueva:** `tests/Unit/ClientUI.spec.luau` la monta con clases reales. Toda pantalla nueva entra en esa prueba.

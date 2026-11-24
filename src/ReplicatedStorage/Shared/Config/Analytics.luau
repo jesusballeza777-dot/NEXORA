@@ -50,6 +50,7 @@ return Freeze.deep({
 		"guardian_battle_started",
 		"guardian_defeated",
 		"codex_entry_unlocked",
+		"achievement_unlocked",
 		"sanctuary_updated",
 	},
 	-- Hitos de una sola vez (p.firsts) con los segundos desde la creación de la cuenta:

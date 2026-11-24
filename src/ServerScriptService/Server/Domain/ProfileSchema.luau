@@ -19,7 +19,7 @@ local ProfileSchema = {}
 
 -- v1: vertical slice (Fase 1) · v2: colección, huevos, incubadora, cofres, historial,
 -- misiones, estrellas del Acto I, Códice, decoración, vitrina, títulos y marcos (Fase 2)
-ProfileSchema.CURRENT_VERSION = 2
+ProfileSchema.CURRENT_VERSION = 3
 
 local function newIncubators(): { Types.IncubatorSlot }
 	local slots = {}
@@ -100,6 +100,8 @@ function ProfileSchema.new(userId: number, now: number): Profile
 		titles = { owned = {}, equipped = nil },
 		frames = { owned = {}, equipped = nil },
 		guardians = {},
+		-- v3
+		achievements = {},
 	}
 end
 
@@ -162,6 +164,24 @@ ProfileSchema.Migrations = {
 		data.story = story
 		data.collection = collection
 		-- El resto de secciones de la v2 se crean vacías en reconcile() con la plantilla.
+		return data
+	end,
+	-- 2 → 3: logros (D-033). Se crea la sección y se reconstruye el contador de huevos
+	-- eclosionados con los monstruos nacidos de huevo; los logros ya cumplidos se marcan
+	-- (con su premio) la próxima vez que se carga el perfil (AchievementRules.refresh).
+	[2] = function(data: { [string]: any }): { [string]: any }
+		data.achievements = data.achievements or {}
+		local counters = data.counters or {}
+		if counters.eggsHatched == nil then
+			local hatched = 0
+			for _, pet in pairs(data.pets or {}) do
+				if pet.acquired and pet.acquired.kind == "Egg" then
+					hatched += 1
+				end
+			end
+			counters.eggsHatched = hatched
+		end
+		data.counters = counters
 		return data
 	end,
 } :: { [number]: (data: { [string]: any }) -> { [string]: any } }

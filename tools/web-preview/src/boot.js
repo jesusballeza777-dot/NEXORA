@@ -40,7 +40,7 @@ function claimAllPending() { for (const rw of pendingRewards()) run("claimReward
 window.__nexora = {
   portrait, get P() { return P; }, Actions: DOM.Actions, DOM, run, startBattle, playTurn, refreshUI, endIntro, hatchSequence, player,
   get battle() { return battle; }, get modalOpen() { return modalOpen; }, teleport: (x, z) => player.position.set(x, 0, z),
-  openPetSheet, openSanctuary, openNexoMenu, openAlbum, openBestiary, openCriadero, openChests, openQuests, openAdventure, openStage, openTreasure, openCodex, closeModal, evolveSequence,
+  openPetSheet, openSanctuary, openNexoMenu, openAlbum, openBestiary, openCriadero, openChests, openQuests, openAdventure, openStage, openTreasure, openCodex, openAchievements, closeModal, evolveSequence,
   // Reloj del "servidor" adelantado (incubadora, encargos): solo para pruebas
   advanceTime(seconds) { DEV.clockOffset = (DEV.clockOffset || 0) + seconds; saveDev(); refreshUI(); return serverNow(); },
   // Equipo fuerte para recorrer el acto: sube a todo el equipo (o a los ids dados)

@@ -17,7 +17,7 @@ const WORLD_ENCOUNTERS = CFG.Encounters.Order.filter((id) => CFG.Encounters.ById
 const ENG = NexoraEngine.createEngine(CFG);
 const { Stats, Leveling, BattleEngine: BE, BattleAI: AI, ElementChart } = ENG;
 const DOM = NexoraDomain.createDomain(CFG, ENG);
-const { ProfileSchema, PetRules, SanctuaryRules, CollectionRules, EggRules, ChestRules, QuestRules, EncounterRules, DecorRules } = DOM;
+const { ProfileSchema, PetRules, SanctuaryRules, CollectionRules, EggRules, ChestRules, QuestRules, EncounterRules, DecorRules, AchievementRules } = DOM;
 const W = CFG.World;
 
 // =====================================================================
@@ -125,6 +125,7 @@ function runWith(fn) {
     if (a.name === "quest_completed") { const q = QuestRules.def(a.fields.quest); toast("📋", `Encargo listo: «${esc(q ? q.title : a.fields.quest)}». Reclámalo en el Tablón.`); }
     else if (a.name === "tutorial_completed") toast("🌳", "¡Tutorial completado! El valle es tuyo.");
     else if (a.name === "codex_entry_unlocked") { const c = CFG.Codex.ById[a.fields.entry]; if (c) toast(c.symbol, `Nueva carta del Códice: ${esc(c.title)}`); }
+    else if (a.name === "achievement_unlocked") { const d = CFG.Achievements.ById[a.fields.achievement]; if (d) toast("🏅", `¡Logro: ${esc(d.name)}! Su premio te espera en el Gran Nexo.`); }
   }
   save();
   return r;
@@ -1501,7 +1502,8 @@ function notices() {
   const t = serverNow();
   const readyEggs = P.incubators.filter((s) => s.eggId && P.eggs[s.eggId] && t >= P.eggs[s.eggId].readyAt).length;
   const quests = [...P.quests.daily, P.quests.weekly].filter((q) => q && !q.claimed && q.progress >= q.target).length;
-  return { rewards: Object.keys(P.rewards.pending).length, chests: ChestRules.count(P), readyEggs, quests };
+  const achievements = AchievementRules.view(P).filter((a) => a.rewardPending).length;
+  return { rewards: Object.keys(P.rewards.pending).length, chests: ChestRules.count(P), readyEggs, quests, achievements };
 }
 function setBadge(btn, n) { btn.querySelector(".badge")?.remove(); if (n) btn.insertAdjacentHTML("beforeend", `<i class="badge">${n === true ? "!" : n}</i>`); }
 function refreshUI() {

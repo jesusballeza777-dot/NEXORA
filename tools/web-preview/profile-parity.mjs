@@ -39,7 +39,7 @@ function diff(a, b, path = "", out = []) {
   return out;
 }
 
-const V2_KEYS = ["collection", "eggs", "nextEggSerial", "incubators", "chests", "nextChestSerial", "history", "quests", "codex", "decor", "showcase", "titles", "frames", "guardians"];
+const V2_KEYS = ["collection", "eggs", "nextEggSerial", "incubators", "chests", "nextChestSerial", "history", "quests", "codex", "decor", "showcase", "titles", "frames", "guardians", "achievements"];
 const tos = (v) => (v === undefined || v === null ? "nil" : String(v));
 const res = (r, extra = "") => `${tos(r.ok)}|${tos(r.err)}${extra}`;
 

@@ -233,6 +233,7 @@ local V2_KEYS = {
 	"titles",
 	"frames",
 	"guardians",
+	"achievements",
 }
 
 local function sortedKeys(t: { [string]: any }): { string }

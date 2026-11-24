@@ -141,6 +141,7 @@ Formato: **estado** · decisión · por qué · consecuencias · dónde vive · 
 
 ### D-023 · Arquitectura de la Fase 2 — D
 - **Perfil v2:** secciones de colección, huevos, incubadora, cofres, historial, encargos, estrellas, Códice, decoración, vitrina, títulos, marcos y Seres Sagrados. Migración 1→2 probada.
+- **Perfil v3:** logros (D-033). Migración 2→3 probada en Lune, en la paridad Luau↔JS y en el navegador.
 - **Reglas:** cada sistema es un módulo puro en `Server/Domain` (`CollectionRules`, `EggRules`, `ChestRules`, `QuestRules`, `DecorRules`, `HistoryRules`, ampliado `EncounterRules`), orquestado por `Actions`.
 - **Progreso de encargos:** se mueve con eventos internos emitidos por `Actions`, nunca por el cliente.
 
@@ -215,6 +216,28 @@ Formato: **estado** · decisión · por qué · consecuencias · dónde vive · 
 - **Decoración:** 6 espacios fijos con objetos deterministas obtenidos jugando, plantillas de un toque y sin editor libre (Genesis F2 §11.1). Los objetos son PROPUESTA.
 - **Vitrina:** hasta 3 monstruos propios (`Sanctuary.VitrinaSlots`).
 - **Vivero:** +10 plazas por 5 000 Monedas, hasta 100 (Biblia p. 30).
+
+### D-033 · Logros — PROPUESTA
+- **De la Biblia:** las Gemas se ganan con logros (p. 91). **De Genesis F2:** huevos y cofres también llegan por logros (§8.1, §9.2) y el perfil guarda los logros (§19). La Biblia no trae la lista.
+- **Propuesto** (`Config/Achievements.luau`), 7 logros:
+
+  | Logro | Meta | Premio fijo |
+  |---|---|---|
+  | Primer latido | 1 huevo eclosionado en la incubadora | 10 Gemas + Cofre de Madera |
+  | Ojos curiosos | 5 especies en el Bestiario | 10 Gemas + Cofre de Madera |
+  | Primer Tallado | 1 especie Tallada | 10 Gemas + Cofre de Plata + título «Tallador» |
+  | Niebla disipada | 4 especies de Opacos restauradas | 10 Gemas + huevo de Zunzi |
+  | Naturalista del Valle | 8 especies en el Bestiario | 10 Gemas + Cofre de Plata |
+  | Cielo de copal | 24 estrellas del Acto I | 10 Gemas + Cofre de Oro |
+  | Raíz restaurada | Copalia restaurada | 10 Gemas + título «Amigo de Copalia» |
+
+- **Reglas:**
+  - sin azar: el premio se ve antes de conseguirlo y los cofres son de contenido fijo (D-024);
+  - 10 Gemas por logro, como en D-012; en la beta las Gemas no compran nada;
+  - el servidor calcula el progreso a partir del perfil (`AchievementRules`), nunca del cliente;
+  - premio idempotente `achievement:<id>` por `RewardRules`;
+  - las metas caben en el contenido del Acto I (`Phase2Config.spec` lo comprueba).
+- **Perfil v3:** `achievements` y el contador `counters.eggsHatched`. La migración 2→3 lo reconstruye con los monstruos nacidos de huevo. Los logros ya cumplidos se marcan con su premio al entrar.
 
 ---
 

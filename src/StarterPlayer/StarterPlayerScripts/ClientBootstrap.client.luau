@@ -83,6 +83,24 @@ BattleController.init({
 	elementColor = Modals.ElementColor,
 })
 
+-- Aviso de logro: solo cuando el servidor marca uno nuevo entre dos vistas
+local Achievements = require(game:GetService("ReplicatedStorage").Shared.Config.Achievements)
+local knownAchievements: { [string]: boolean }? = nil
+local function announceAchievements(view: any)
+	local first = knownAchievements == nil
+	local known: { [string]: boolean } = knownAchievements or {}
+	for _, a in ipairs(view.achievements or {}) do
+		if a.unlockedAt and not known[a.id] then
+			known[a.id] = true
+			local def = Achievements.ById[a.id]
+			if not first and def then
+				Hud.toast("🏅", "Logro: " .. def.name .. " · premio en el Gran Nexo")
+			end
+		end
+	end
+	knownAchievements = known
+end
+
 -- Reacciones del acompañante cuando sube de nivel o gana Vínculo
 local function celebrate(view: any)
 	for _, pet in ipairs(view.pets) do
@@ -102,6 +120,7 @@ Net.on("Profile", function(view)
 	Hud.render(view)
 	WorldController.applyState(view)
 	celebrate(view)
+	announceAchievements(view)
 	local step = view.onboarding.step
 	if step == "Intro" and lastStep ~= nil and lastStep ~= "Intro" then
 		-- El perfil volvió a empezar (Dev.ResetProfile en Studio): repetir la bienvenida

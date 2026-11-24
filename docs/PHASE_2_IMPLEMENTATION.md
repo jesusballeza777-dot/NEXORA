@@ -9,7 +9,7 @@ Rama: `phase-2/content-beta` (desde `phase-1-stable`). Estado: **beta de conteni
 | A · Estabilidad | — | Auditoría, rama, respaldo, perfil v2 con migración probada, correcciones críticas | ✅ `docs/PHASE_2_BASELINE_AUDIT.md`; sustitución en combate; cola del gateway; esquema v2 |
 | B · Colección | A | Catálogo de 50 con lore, descubrimientos, Álbum con siluetas, Bestiario por niveles, Brote y Tallado diferenciados | ✅ dominio, pantallas Roblox y vista web |
 | C · Evolución e incubación | A, B | Huevos con resultado fijado al obtenerlos, temporizadores del servidor, reconexión, eclosión, Tallado como ceremonia | ✅ |
-| D · Recompensas y misiones | A, C | Seis cofres configurables, tablas validadas, una sola entrega, historial, tablón 3+1 con rotación del servidor | ✅ (cofres con contenido fijo, D-024) |
+| D · Recompensas y misiones | A, C | Seis cofres configurables, tablas validadas, una sola entrega, historial, tablón 3+1 con rotación del servidor | ✅ (cofres con contenido fijo, D-024; logros con premio fijo, D-033) |
 | E · Santuario | A | Hábitats de 4 lugares, producción, decoración inicial validada, vitrina | ✅ |
 | F · Aventura | A, C, D | 3 regiones, 12 etapas, estrellas, Opacos, Tesoro, Rescate, secretas, Copalia con dos fases, Cofre Nexo, Códice | ✅ |
 | G · Narrativa y acabado | B–F | Códice, ceremonias, interfaz por pantalla, rendimiento | ✅ Códice y ceremonias; ⏳ sonido (sin activos aprobados) |
@@ -34,6 +34,8 @@ Rama: `phase-2/content-beta` (desde `phase-1-stable`). Estado: **beta de conteni
 | `Server/Domain/QuestRules.luau` | Dominio | Rotación determinista, progreso por eventos, reclamación, bonus |
 | `Server/Domain/DecorRules.luau` | Dominio | Decoración, plantillas, vitrina, ampliación del Vivero |
 | `Server/Domain/HistoryRules.luau` | Dominio | Historial de obtenciones acotado |
+| `Shared/Config/Achievements.luau` | Config | 7 logros con premio fijo (D-033) |
+| `Server/Domain/AchievementRules.luau` | Dominio | Progreso calculado del perfil, marca y premio idempotente, vista |
 | `Server/World/FloraLayout.luau` | Mundo | Reparto determinista de flora (bloque gráfico) |
 | `Client/UI/Screens/{Collection,Breeding,Adventure,SanctuaryPlus}.luau` | Cliente | Pantallas de la Fase 2 |
 | `Client/UI/Ceremony.luau`, `Client/UI/QuickMenu.luau` | Cliente | Eclosión, Tallado, cofres, resultado de etapa; accesos rápidos |
@@ -48,7 +50,7 @@ Rama: `phase-2/content-beta` (desde `phase-1-stable`). Estado: **beta de conteni
 | `Shared/Domain/Battle/BattleEngine.luau` (+ `tools/web-preview/src/engine.js`) | Sustitución, raíces, fases de Seres Sagrados, campo de precisión, `summary`, curación de equipo |
 | `Shared/Config/Encounters.luau` | Acto I completo (16 etapas), regiones, actos, Pesadilla preparada |
 | `Shared/Config/{Abilities,Visuals,World,Sanctuary,Analytics}.luau` | Bosque de Faroles, blockouts nuevos, estaciones activas, ampliación del Vivero, eventos |
-| `Server/Domain/{Actions,EncounterRules,RewardRules,ProfileSchema,ProfileView}.luau` | Casos de uso de la Fase 2, perfil v2, recompensas con cofres, huevos y decoración |
+| `Server/Domain/{Actions,EncounterRules,RewardRules,ProfileSchema,ProfileView}.luau` | Casos de uso de la Fase 2, perfil v2 → **v3 (logros)**, recompensas con cofres, huevos y decoración; `Actions.finish` evalúa los logros |
 | `Server/Services/{GameplayService,BattleService,WorldService,RemoteGateway,PlayerDataService}.luau` | 13 acciones nuevas, resumen de combate, estado público del lote, cola FIFO, eventos de sesión |
 | `Shared/Net/Contract.luau` | Acciones nuevas; `Battle.Start` sin proximidad (D-026) |
 | `Client/Controllers/{BattleController,WorldController}.luau`, `Client/UI/Modals.luau`, `ClientBootstrap` | Combate multi-rival y jefe, estaciones, recompensas ampliadas, ficha segura, ceremonias |

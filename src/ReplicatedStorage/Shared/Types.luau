@@ -166,6 +166,8 @@ export type Profile = {
 	titles: { owned: { [string]: number }, equipped: string? },
 	frames: { owned: { [string]: number }, equipped: string? },
 	guardians: { [string]: number }, -- Seres Sagrados restaurados (una copia por cuenta)
+	-- v3
+	achievements: { [string]: number }, -- logro → hora del servidor en que se cumplió
 }
 
 return {}

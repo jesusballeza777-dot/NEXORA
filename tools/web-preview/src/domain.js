@@ -19,7 +19,7 @@
     const Economy = CFG.Economy, Sanctuary = CFG.Sanctuary, SpeciesCfg = CFG.Species, Rarities = CFG.Rarities;
     const Progression = CFG.Progression, Onboarding = CFG.Onboarding, Encounters = CFG.Encounters;
     const RewardsCfg = CFG.Rewards, Chests = CFG.Chests, Incubation = CFG.Incubation, Quests = CFG.Quests;
-    const Decor = CFG.Decor;
+    const Decor = CFG.Decor, Achievements = CFG.Achievements;
 
     const Result = { ok: (data) => ({ ok: true, data: data || {} }), fail: (err) => ({ ok: false, err }) };
     const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
@@ -44,7 +44,7 @@
     // =================================================================
     // ProfileSchema
     // =================================================================
-    const ProfileSchema = { CURRENT_VERSION: 2 };
+    const ProfileSchema = { CURRENT_VERSION: 3 };
     function newIncubators() { const s = []; for (let i = 1; i <= Incubation.MaxSlots; i++) s.push({ unlocked: i === 1 }); return s; }
     function newDecorSlots() { const s = []; for (let i = 1; i <= Decor.FreeSlots; i++) s.push(false); return s; }
     function newHabitat(id, now) {
@@ -71,6 +71,7 @@
         quests: { day: -1, daily: [], dailyBonusClaimed: false, week: -1 },
         codex: {}, decor: { slots: newDecorSlots(), owned: {} }, showcase: [],
         titles: { owned: {} }, frames: { owned: {} }, guardians: {},
+        achievements: {},
       };
     };
     function phase1Opponent(data, encounterId) {
@@ -114,6 +115,18 @@
         }
         data.story = story;
         data.collection = collection;
+        return data;
+      },
+      // 2 → 3: logros (D-033), con el contador de huevos eclosionados reconstruido
+      2(data) {
+        data.achievements = data.achievements || {};
+        const counters = data.counters || {};
+        if (nil(counters.eggsHatched)) {
+          let hatched = 0;
+          for (const pet of Object.values(data.pets || {})) if (pet.acquired && pet.acquired.kind === "Egg") hatched++;
+          counters.eggsHatched = hatched;
+        }
+        data.counters = counters;
         return data;
       },
     };
@@ -512,6 +525,7 @@
       if (!created.ok) return created;
       const petId = created.data.petId;
       p.pets[petId].traits = clone(egg.traits);
+      p.counters.eggsHatched = (p.counters.eggsHatched ?? 0) + 1;
       delete slot.eggId;
       delete p.eggs[egg.id];
       const found = CollectionRules.obtain(p, egg.speciesId, "Brote", now);
@@ -1073,6 +1087,41 @@
     // Actions (casos de uso)
     // =================================================================
     const Actions = { HOME_HABITAT: "Hogar_H1", EncounterOrder: Encounters.Order };
+    // ── Logros (AchievementRules.luau, D-033) ──
+    const AchievementRules = {};
+    AchievementRules.rewardId = (id) => "achievement:" + id;
+    AchievementRules.metric = function (p, metric) {
+      let n = 0;
+      if (metric === "SpeciesDiscovered") { for (const e of values(p.collection)) if (isDiscovered(e)) n++; }
+      else if (metric === "SpeciesRestored") { for (const e of values(p.collection)) if (!nil(e.restoredAt)) n++; }
+      else if (metric === "Tallados") { for (const e of values(p.collection)) if (!nil(e.talladoAt)) n++; }
+      else if (metric === "EggsHatched") n = p.counters.eggsHatched ?? 0;
+      else if (metric === "Stars") {
+        for (const [encId, marks] of Object.entries(p.story.stars || {})) {
+          const enc = Encounters.ById[encId];
+          if (enc && enc.act === "ActoI") for (const got of marks || []) if (got) n++;
+        }
+      } else if (metric === "Guardians") n = Object.keys(p.guardians || {}).length;
+      return n;
+    };
+    AchievementRules.refresh = function (p, now) {
+      const unlocked = [];
+      for (const id of Achievements.Order) {
+        const def = Achievements.ById[id];
+        if (nil(p.achievements[id]) && AchievementRules.metric(p, def.metric) >= def.goal) {
+          const created = RewardRules.create(p, AchievementRules.rewardId(id), {
+            title: "Logro: " + def.name, currencies: def.reward.currencies, chests: def.reward.chests, eggs: def.reward.eggs, titles: def.reward.titles,
+          }, { kind: "Achievement", ref: id }, now);
+          if (created.ok) { p.achievements[id] = now; unlocked.push(id); }
+        }
+      }
+      return unlocked;
+    };
+    AchievementRules.view = (p) => Achievements.Order.map((id) => {
+      const def = Achievements.ById[id];
+      return { id, goal: def.goal, progress: Math.min(def.goal, AchievementRules.metric(p, def.metric)), unlockedAt: p.achievements[id], rewardId: AchievementRules.rewardId(id), rewardPending: !nil(p.rewards.pending[AchievementRules.rewardId(id)]) };
+    });
+
     const HOME = "Hogar_H1";
     const FIRST_COLLECT_BONUS = 50;
     function first(p, analytics, name, now, fields) { if (!p.firsts[name]) { p.firsts[name] = now; analytics.push({ name, fields: fields || {} }); } }
@@ -1087,7 +1136,9 @@
     }
     function finish(p, r, analytics, now) {
       const steps = OnboardingRules.refresh(p, now);
-      if (r.ok) { const data = r.data || {}; data.analytics = analytics; data.onboarding = steps; data.onboardingStep = p.onboarding.step; r.data = data; }
+      const unlocked = AchievementRules.refresh(p, now);
+      for (const id of unlocked) analytics.push({ name: "achievement_unlocked", fields: { achievement: id } });
+      if (r.ok) { const data = r.data || {}; data.analytics = analytics; data.onboarding = steps; data.onboardingStep = p.onboarding.step; data.achievements = unlocked; r.data = data; }
       for (const s of steps) if (s === "tutorial_completed") analytics.push({ name: "tutorial_completed", fields: {} });
       return r;
     }
@@ -1359,7 +1410,7 @@
 
     return {
       Result, ProfileSchema, PetRules, SanctuaryRules, OnboardingRules, ShopRules, CollectionRules, EggRules, ChestRules,
-      QuestRules, DecorRules, HistoryRules, RewardRules, EncounterRules, Actions,
+      QuestRules, DecorRules, HistoryRules, RewardRules, EncounterRules, AchievementRules, Actions,
     };
   }
 

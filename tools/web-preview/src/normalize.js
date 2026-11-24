@@ -20,6 +20,7 @@
       if (e.firstClearCodex) e.firstClearCodex = asArray(e.firstClearCodex);
     }
     if (cfg.Chests) for (const c of Object.values(cfg.Chests.ById)) if (c.fixed) c.fixed.eggs = asArray(c.fixed.eggs);
+    if (cfg.Achievements) for (const a of Object.values(cfg.Achievements.ById)) for (const k of ["chests", "eggs", "titles"]) if (a.reward[k]) a.reward[k] = asArray(a.reward[k]);
     return cfg;
   }
   const api = { normalizeConfig };

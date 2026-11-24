@@ -4,7 +4,7 @@
 |---|---|---|
 | 0 · Auditoría | Repo, Biblia, herramientas, Studio/MCP, riesgos | ✅ Hecha (21 nov 2026) |
 | 1 · Vertical slice | Núcleo jugable: Valle, 3 iniciales provisionales, eclosión, acompañante, lote, cuidado, XP, PvE, recompensa, guardado | 🟡 Código completo y probado fuera de Studio; falta validación en Roblox Studio |
-| 2 · Content beta | Colección (Álbum, Bestiario), huevos e incubadora, cofres ganados jugando, Tablón de Encargos, santuario ampliado, Acto I completo con Copalia, Códice | 🟡 Código del servidor y del cliente de Roblox completo y probado fuera de Studio (rama `phase-2/content-beta`); vista previa web en curso; falta Studio |
+| 2 · Content beta | Colección (Álbum, Bestiario), huevos e incubadora, cofres ganados jugando, Tablón de Encargos, santuario ampliado, Acto I completo con Copalia, Códice | 🟡 Código del servidor y del cliente de Roblox completo y probado fuera de Studio (rama `phase-2/content-beta`); vista previa web jugable y probada en Chromium; logros (perfil v3); falta Studio |
 | 3 · Retención | Visitas, exhibiciones, eventos configurables, personalización, cosméticos deterministas | ⬜ |
 | 4 · Expansión | Crianza, biomas/actos/guardianes, PvP, temporadas, torneos, posible suscripción | ⬜ |
 
@@ -44,10 +44,12 @@
   - **corrección crítica:** el motor no sustituía al monstruo caído en equipos de 2–3;
   - cola FIFO en el gateway.
 - **Bloques B–F:** colección y Bestiario (lore de las 50 fichas), huevos e incubadora de 5 ranuras, cofres (catálogo de 6 con contenido fijo, D-024), Tablón de Encargos, decoración y vitrina, Acto I (16 etapas, estrellas, tesoros, rescates, secretas, raíces, Copalia en dos fases), Códice.
-- **Cliente Roblox:** 16 pantallas nuevas, ceremonias (eclosión, Tallado, cofres, resultado de etapa), menú rápido, estaciones activas, combate con relevos y jefe, lotes con decoración, vitrina e incubadora animada.
+- **Logros** (D-033): 7 logros con Gemas, cofres, un huevo y títulos fijos; progreso calculado en el servidor; perfil v3 con migración probada.
+- **Cliente Roblox:** 17 pantallas nuevas (con Logros), ceremonias (eclosión, Tallado, cofres, resultado de etapa), menú rápido, estaciones activas, combate con relevos y jefe, lotes con decoración, vitrina e incubadora animada.
 - **Calidad:**
-  - 144 pruebas Lune, incluido el Acto I completo de punta a punta y una prueba de humo que monta todas las pantallas con clases reales de Roblox;
-  - paridad de combate 225/225;
+  - 151 pruebas Lune, incluido el Acto I completo de punta a punta y una prueba de humo que monta todas las pantallas con clases reales de Roblox;
+  - paridad de combate 225/225 y de perfil 3/3 (Luau ↔ JS);
+  - vista previa web de la Fase 2 probada con Playwright en escritorio y móvil;
   - catálogo generado (`docs/CONTENT_CATALOG.md`);
   - paquete de arte (`docs/art/`).
 
@@ -58,7 +60,6 @@
 4. **Cinemática de eclosión y de Tallado en Roblox** (la vista previa ya las tiene; en Roblox hay tarjeta pero no animación 3D).
 5. **Pulido de la Linde de las Chinampas**: escenario de combate con cámara dedicada, efectos por elemento, sonido.
 6. **Medición en dispositivo móvil de gama baja**: memoria, draw calls, 8 monstruos a 30 fps.
-7. Fase 2: incubadora (tiempos y aceleración solo de tiempo), Tablón de Encargos (3 diarios + 1 semanal), Repisa de Cofres ganados, Álbum del Nexo, región 2 del Acto I y Copalia.
 
 ## Problemas conocidos y riesgos
 | # | Tipo | Descripción | Acción |
@@ -67,7 +68,7 @@
 | R2 | Tipos | `luau-analyze` no pudo compilarse aquí; el modo `--!strict` no se ha verificado con el analizador. | Abrir en Studio o ejecutar luau-lsp con `rojo sourcemap` |
 | R3 | Balance | Xolumi tarda casi el doble en vencer al primer Opaco (D-008 / B-005). | Revisar con arte y sonido; posible Opaco de Fuego menos defensivo |
 | R4 | Arte | Todos los modelos son blockouts. | Pipeline de arte (Fase 2) |
-| R5 | Repositorio | El push a GitHub fue rechazado: la app de Claude no tiene acceso a `jesusballeza777-dot/NEXORA`. | Conectar GitHub e instalar la app; luego subir la rama |
+| R5 | Repositorio | ✅ Resuelto: la rama `phase-2/content-beta` se sube a GitHub. | — |
 | R6 | Fuente | Falta la Biblia v5 completa en `docs/reference/`. | Incorporarla y repasar `DESIGN_DECISIONS.md` |
 | R7 | Producto | 93 preguntas abiertas de la v5.1 (ninguna bloquea la Fase 1). | Priorizar las de la tabla de `DESIGN_DECISIONS.md` §4 |
 | R8 | Cofres | Faltan las tablas de probabilidad de la Biblia v5: los cofres usan contenido fijo (D-024). | Incorporar la v5 o aprobar tablas; el validador las comprueba |
