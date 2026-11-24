@@ -18,6 +18,7 @@ local Economy = require(Config:WaitForChild("Economy"))
 local Kit = require(script.Parent.Kit)
 local CreatureBuilder = require(script.Parent.Parent.Creatures.CreatureBuilder)
 local EvolutionVFXController = require(script.Parent.Parent.VFX.EvolutionVFXController)
+local SoundController = require(script.Parent.Parent.Audio.SoundController)
 
 local Ceremony = {}
 
@@ -184,6 +185,7 @@ function Ceremony.hatch(speciesId: string, petName: string?, newSpecies: boolean
 		end
 		egg:Destroy()
 		flash()
+		SoundController.shared():play("SFX_UI_Hatch")
 		portrait(root, speciesId, "Brote")
 		caption(
 			root,
@@ -209,6 +211,7 @@ function Ceremony.evolve(speciesId: string, beforeStats: { [string]: number }?, 
 		-- elemento, transición de materiales, luz, revelación del Tallado y presentación.
 		local evo = EvolutionVFXController.new(root, speciesId, {
 			onFlash = flash,
+			sound = SoundController.shared(),
 			onPhase = function(phase: string)
 				if phase == "Reveal" and note then
 					note:Destroy()

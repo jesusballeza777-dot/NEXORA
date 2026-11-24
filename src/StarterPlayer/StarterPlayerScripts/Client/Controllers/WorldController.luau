@@ -33,6 +33,7 @@ local CreatureAnimator = require(Client.Animation.CreatureAnimator)
 local MotionStateMachine = require(Client.Animation.MotionStateMachine)
 local AuraController = require(Client.VFX.AuraController)
 local VFXPlan = require(Client.VFX.VFXPlan)
+local SoundController = require(Client.Audio.SoundController)
 
 type Creature = CreatureBuilder.Creature
 
@@ -217,6 +218,9 @@ function WorldController.react(userId: number?)
 	local entry = companions[userId or player.UserId]
 	if entry then
 		entry.anim:trigger("Happy") -- Kuachi a veces se hace el muerto al jugar
+		local s = entry.steer
+		SoundController.shared()
+			:play("SFX_CR_" .. entry.creature.speciesId .. "_Happy", { at = Vector3.new(s.x, entry.y + 1, s.z) })
 	end
 end
 

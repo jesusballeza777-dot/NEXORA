@@ -28,6 +28,7 @@ local CombatVFXController = require(Client.VFX.CombatVFXController)
 local ImpactVFXController = require(Client.VFX.ImpactVFXController)
 local CameraDirector = require(Client.VFX.CameraDirector)
 local VFXPlan = require(Client.VFX.VFXPlan)
+local SoundController = require(Client.Audio.SoundController)
 local Kit = require(Client.UI.Kit)
 local Net = require(Client.Net)
 
@@ -498,6 +499,7 @@ local function playTurn(payload: any)
 				target = target,
 				events = VFXPlan.moveGroup(payload.events, i),
 				camera = battle.director,
+				sound = SoundController.shared(),
 			})
 			if battle.skip then
 				battle.seq.skip()
@@ -596,9 +598,11 @@ local function finish(payload: any)
 	-- Victoria: el monstruo celebra con copal; derrota: queda cansado (nunca dramático)
 	if payload.won then
 		battle.mineSide.anim:hold("Victory")
+		SoundController.shared():play("SFX_Combat_Victory")
 		ImpactVFXController.play({ "Victory" }, { creature = battle.mine }, { owner = battle })
 	elseif payload.reason ~= "Forfeit" then
 		battle.mineSide.anim:hold("Defeat")
+		SoundController.shared():play("SFX_Combat_Defeat")
 	end
 	BattleController.render(text)
 	pause(1.6)
