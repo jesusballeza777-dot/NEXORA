@@ -81,7 +81,9 @@ function CreatureAnimator.new(
 	local scale = creature.scale or 1
 	local rig = o.rig
 		or (
-			if o.mesh or not creature.parts
+			if o.mesh
+					or creature.mesh
+					or not creature.parts
 				then CreatureRig.fromBones(creature.model, scale)
 				else CreatureRig.get(creature)
 		)
