@@ -313,6 +313,33 @@ Detalle en `ANIMATION_SYSTEM.md` §10:
 - **AN-P5 · Opacos en guardia:** se ponen en guardia a menos de 16 studs.
 - **AN-P6 · Nombres de hueso** `gill_L/R` y `wing_L/R` para modelos futuros.
 
+### D-044 · Dirección de arte: luz, materiales, audio y rendimiento — PROPUESTA 👤
+Detalle en `LIGHTING_DIRECTION.md`, `MATERIAL_LIBRARY.md`, `AUDIO_DIRECTION.md`, `PERFORMANCE_BUDGET.md` y `BIOME_ART_BIBLE.md`.
+
+**Luz:**
+- **L-1 a L-3:** ajustes de `Ambience`:
+  - sombras frías con `OutdoorAmbient`;
+  - `ColorShift` de arriba y de abajo;
+  - `Atmosphere.Decay`.
+- **L-5:** un único `LightingDirector` en el cliente; hoy tres módulos tocan `Lighting`.
+- **L-7:** la fase 2 de Copalia oscurece menos, con luz de lectura en cada combatiente y vuelta interpolada.
+
+**Materiales:**
+- **M-1:** el copal tiene dos acabados, pulido y mate.
+- **M-2:** un lugar de Roblox por bioma, porque el terreno, el agua y la luz son globales del lugar. La alternativa es un solo lugar con materiales de terreno compartidos y la luz que cambia el cliente.
+
+**Audio:**
+- **A-1 y A-7:** un motivo de cuatro notas del Nexo; el Opacamiento suena a «silencio y viento» y la restauración devuelve las capas en orden.
+- **A-2:** un `SoundGroup` por categoría, con ducking en combate y en las ceremonias.
+
+**Rendimiento:**
+- **P-1:** que `roblox-preview` imprima los conteos de luces y emisores.
+- **P-2:** `StreamingEnabled` cuando lleguen los biomas.
+- **P-3:** calidad adaptativa que solo toca el arte.
+
+**Biomas:**
+- **BIO-1:** Marea Coralina y Meseta Fulgor siguen sujetas a la pregunta 18 de la Biblia.
+
 ---
 
 ## 3. Contradicciones detectadas en la Biblia
