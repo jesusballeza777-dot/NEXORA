@@ -19,6 +19,32 @@ end
 local RobloxSandbox = {}
 RobloxSandbox.roblox = roblox
 
+-- Métodos del motor que Lune no implementa. Se registran las llamadas para que las pruebas
+-- de efectos, animación y sonido puedan comprobarlas (no hay render ni audio en Lune).
+local engineCalls = { emit = {} :: { { emitter: any, count: number } }, play = {} :: { any }, stop = {} :: { any } }
+RobloxSandbox.calls = engineCalls
+function RobloxSandbox.resetCalls()
+	table.clear(engineCalls.emit)
+	table.clear(engineCalls.play)
+	table.clear(engineCalls.stop)
+end
+roblox.implementMethod("ParticleEmitter", "Emit", function(self, count)
+	table.insert(engineCalls.emit, { emitter = self, count = count or 16 })
+end)
+roblox.implementMethod("ParticleEmitter", "Clear", function() end)
+roblox.implementMethod("Sound", "Play", function(self)
+	table.insert(engineCalls.play, self)
+end)
+roblox.implementMethod("Sound", "Stop", function(self)
+	table.insert(engineCalls.stop, self)
+end)
+-- BulkMoveTo: asigna los CFrame uno a uno (en Roblox es una sola llamada barata)
+roblox.implementMethod("Workspace", "BulkMoveTo", function(_self, parts, cframes)
+	for i, part in ipairs(parts) do
+		part.CFrame = cframes[i]
+	end
+end)
+
 export type Sandbox = {
 	workspace: any,
 	lighting: any,
