@@ -65,7 +65,9 @@ Las seis categorías de `AudioCues` (`Ambient`, `Music`, `Creature`, `Combat`, `
 | `UI` | 0,7 | `SFX_UI_*` | No se agacha nunca |
 | `World` | 0,7 | Interactivos del mundo (ids nuevos en §10) | — |
 
-- **Ajustes del jugador:** deslizadores de Música, Efectos y Ambiente, y un «Silenciar todo». Se guardan con los demás ajustes de interfaz (decisión del equipo de cliente).
+- **Ajustes del jugador:** deslizadores de Música, Efectos y Ambiente, y un «Silenciar todo» (`SoundController.setCategoryVolume`).
+  - Igual que los ajustes de efectos (D-042, VFX-P5), duran solo la sesión.
+  - Guardarlos exige un remote en `Contract` y una migración del perfil: es una decisión aparte.
 - **Reverberación:** `SoundService.AmbientReverb` por bioma (verificar los nombres de `Enum.ReverbType`). Es global y la cambia el cliente al entrar en el bioma, a mitad de la transición (`LIGHTING_DIRECTION.md` §5).
 
 | Bioma | Reverberación |
