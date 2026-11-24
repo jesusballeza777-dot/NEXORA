@@ -1,7 +1,7 @@
 // NEXORA · Vista previa web jugable (Valle Copal · Fase 2 beta).
 // Reglas: mismas cifras, motor de combate y reglas de perfil que el proyecto Roblox
 // (config exportada desde Luau + engine.js y domain.js con paridad comprobada).
-// Arte: BLOCKOUTS provisionales. Archivos de la página (se concatenan en este orden):
+// Arte: BLOCKOUTS provisionales, salvo los seis iniciales (modelos 3D de la Fase 3, propuesta). Archivos de la página (se concatenan en este orden):
 //   game.js (mundo, criaturas, perfil, HUD) · battle.js (combate) · screens.js
 //   (pantallas de la Fase 2) · boot.js (arranque y ganchos de prueba).
 import * as THREE from "three";
@@ -10,6 +10,25 @@ import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import * as SkeletonUtils from "three/addons/utils/SkeletonUtils.js";
+
+// Modelos 3D de la Fase 3 (PROPUESTA sin aprobar, tools/sculpt): los seis iniciales con malla,
+// texturas PBR y esqueleto. Se cargan antes de construir el mundo; si fallan, se usa el blockout.
+const GLB_TEMPLATES = {};
+await (async () => {
+  const src = window.NEXORA_GLB || {};
+  const loader = new GLTFLoader();
+  for (const [key, b64] of Object.entries(src)) {
+    try {
+      const bin = Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0));
+      const gltf = await loader.parseAsync(bin.buffer, "");
+      GLB_TEMPLATES[key] = gltf.scene;
+    } catch (err) {
+      console.warn("Modelo 3D no disponible:", key, err && err.message);
+    }
+  }
+})();
 
 const CFG = NexoraNormalize.normalizeConfig(window.NEXORA_CONFIG);
 // Etapas con Opaco físico en la Linde (las del mapa del Acto I no tienen marcador)
@@ -845,7 +864,71 @@ const wingTex = canvasTex(128, 256, (g, w, h) => {
 });
 wingTex.colorSpace = THREE.SRGBColorSpace;
 
+const glbScale = {};
 function buildCreature(speciesId, form, opaco = false) {
+  const tpl = GLB_TEMPLATES[speciesId + ":" + form];
+  if (!tpl) return buildProceduralCreature(speciesId, form, opaco);
+  const key = speciesId + ":" + form;
+  if (glbScale[key] === undefined) {
+    // misma escala de mundo que el blockout (media geométrica de la caja envolvente)
+    const proc = buildProceduralCreature(speciesId, form, false);
+    const a = new THREE.Box3().setFromObject(proc).getSize(V(0, 0, 0));
+    tpl.updateMatrixWorld(true);
+    tpl.traverse((o) => { if (o.isSkinnedMesh) o.skeleton.update(); });
+    const b = new THREE.Box3().setFromObject(tpl, true).getSize(V(0, 0, 0));
+    glbScale[key] = Math.cbrt((a.x * a.y * a.z) / Math.max(1e-6, b.x * b.y * b.z));
+  }
+  const root = new THREE.Group(), body = new THREE.Group();
+  root.add(body);
+  const model = SkeletonUtils.clone(tpl);
+  body.add(model);
+  const mats = [], bones = {};
+  model.traverse((o) => {
+    if (o.isBone) bones[o.name] = o;
+    if (o.isMesh) {
+      o.material = o.material.clone();
+      o.castShadow = true;
+      o.frustumCulled = false;
+      if (o.material.emissiveMap) o.material.emissiveIntensity = form === "Tallado" ? 1.6 : 1.1;
+      mats.push(o.material);
+    }
+  });
+  root.scale.setScalar(glbScale[key]);
+  const rim = { color: { value: new THREE.Color(0xffe2b0) }, strength: { value: 0 }, base: 0 };
+  const parts = { tail: [], gills: [], legs: [], spin: [], glow: [], eyes: [], ears: [] };
+  root.userData = { speciesId, form, parts, mats, body, rim, bones, glb: true, phase: Math.random() * 10, opaco: 0, baseColors: mats.map((m) => m.color.clone()), baseEmissive: mats.map((m) => m.emissive.clone()), baseEI: mats.map((m) => m.emissiveIntensity) };
+  setOpaco(root, opaco ? 1 : 0);
+  return root;
+}
+
+// Animación por huesos de los modelos 3D (misma personalidad que el blockout: Kuachi inquieto,
+// Xolumi ondulante, Teselo pesado). Los huesos están en reposo sin rotación.
+function animateBones(c, t, dt, moving) {
+  const u = c.userData, B = u.bones, sp = u.speciesId;
+  const heavy = sp === "teselo", amph = sp === "xolumi";
+  const ph = t * (moving ? (heavy ? 5.5 : 8) : 2.0) + u.phase;
+  const set = (b, x = 0, y = 0, z = 0) => { if (b) b.rotation.set(x, y, z); };
+  u.body.position.y = moving ? Math.abs(Math.sin(ph)) * (heavy ? 0.05 : 0.14) : Math.sin(ph) * 0.02;
+  u.body.rotation.z = moving && heavy ? Math.sin(ph) * 0.04 : 0;
+  set(B.spine, moving ? 0 : Math.sin(ph) * 0.02, amph && moving ? Math.sin(ph) * 0.2 : 0, 0);
+  set(B.body, moving ? 0 : Math.sin(ph) * 0.015);
+  set(B.chest, Math.sin(ph + 0.5) * 0.03, amph && moving ? -Math.sin(ph) * 0.12 : 0);
+  // mirada curiosa en reposo; Kuachi olfatea con pequeños tirones de cabeza
+  const look = moving ? 0 : Math.sin(t * 0.7 + u.phase) * (heavy ? 0.2 : 0.35);
+  const sniff = sp === "kuachi" && !moving ? Math.max(0, Math.sin(t * 2.1 + u.phase)) ** 8 * -0.16 : 0;
+  set(B.neck, 0, look * 0.4);
+  set(B.head, Math.sin(ph * 0.5) * 0.04 + sniff, look * (B.neck ? 0.6 : 1));
+  const amp = moving ? (heavy ? 0.3 : amph ? 0.45 : 0.6) : 0;
+  for (const [n, o] of [["legF_L", 0], ["legB_R", 0], ["legM_R", 0], ["legF_R", Math.PI], ["legB_L", Math.PI], ["legM_L", Math.PI]]) set(B[n], Math.sin(ph + o) * amp);
+  const tw = moving ? 0.3 : 0.2, tf = moving ? 6 : 1.6;
+  ["tail1", "tail2", "tail3", "tail4", "tail5"].forEach((n, i) => set(B[n], Math.sin(t * 1.1 + i) * 0.04, Math.sin(t * tf + u.phase - i * 0.6) * tw * (1 + i * 0.2)));
+  if (B.ringA) B.ringA.rotation.y += dt * 0.6;
+  if (B.ringB) B.ringB.rotation.y -= dt * 0.9;
+  if (B.skyDisc) B.skyDisc.rotation.y += dt * 0.25;
+  if (u.react > 0) { u.react = Math.max(0, u.react - dt); const k = u.react / 0.9; u.body.position.y += Math.sin(k * Math.PI) * 1.6; u.body.rotation.y = (1 - k) * Math.PI * 2 * (u.reactSpin || 0); }
+}
+
+function buildProceduralCreature(speciesId, form, opaco = false) {
   const vis = CFG.Visuals.ById[speciesId];
   const pal = form === "Tallado" ? vis.tallado : vis.brote;
   const T = form === "Tallado";
@@ -1131,6 +1214,7 @@ function setOpaco(c, amount) {
   u.rim.color.value.setHex(amount > 0.5 ? 0xb8b8c8 : 0xffe2b0);
 }
 function animateCreature(c, t, dt, moving) {
+  if (c.userData.glb) return animateBones(c, t, dt, moving);
   const u = c.userData, p = u.parts, ph = t * (moving ? 9 : 2.2) + u.phase;
   u.body.position.y = moving ? Math.abs(Math.sin(ph)) * 0.35 : Math.sin(ph) * 0.06;
   u.body.scale.y = 1 + (moving ? 0 : Math.sin(ph) * 0.03);

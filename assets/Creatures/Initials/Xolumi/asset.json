@@ -1,0 +1,153 @@
+{
+  "id": "CR_Xolumi_Brote_v01",
+  "name": "Xolumi",
+  "species": "xolumi",
+  "form": "Brote",
+  "version": 1,
+  "status": "Proposal",
+  "approval": "Pendiente de aprobación humana (docs/ART_BIBLE_GENESIS.md §11)",
+  "provenance": "Esculpido procedural con tools/sculpt (campos de distancia → marching cubes → simplificación → UV xatlas → horneado PBR). Sin herramientas externas de IA.",
+  "rarity": "Comun",
+  "elements": [
+    "Agua"
+  ],
+  "family": "Anfibio",
+  "biome": "ValleCopal",
+  "units": "studs (Y arriba, mira hacia +Z)",
+  "budget": {
+    "triangles": [
+      2500,
+      4000
+    ],
+    "bones": 18,
+    "texture": "1024x1024"
+  },
+  "bones": [
+    {
+      "name": "root",
+      "parent": null,
+      "head": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "spine",
+      "parent": "root",
+      "head": [
+        0,
+        0.42,
+        -0.3
+      ]
+    },
+    {
+      "name": "head",
+      "parent": "spine",
+      "head": [
+        0,
+        0.55,
+        0.15
+      ]
+    },
+    {
+      "name": "legF_L",
+      "parent": "spine",
+      "head": [
+        0.28,
+        0.32,
+        0.12
+      ]
+    },
+    {
+      "name": "legF_R",
+      "parent": "spine",
+      "head": [
+        -0.28,
+        0.32,
+        0.12
+      ]
+    },
+    {
+      "name": "legB_L",
+      "parent": "spine",
+      "head": [
+        0.26,
+        0.32,
+        -0.55
+      ]
+    },
+    {
+      "name": "legB_R",
+      "parent": "spine",
+      "head": [
+        -0.26,
+        0.32,
+        -0.55
+      ]
+    },
+    {
+      "name": "tail1",
+      "parent": "spine",
+      "head": [
+        0,
+        0.45,
+        -0.7
+      ]
+    },
+    {
+      "name": "tail2",
+      "parent": "tail1",
+      "head": [
+        0,
+        0.45,
+        -1.15
+      ]
+    }
+  ],
+  "lods": {
+    "LOD0": {
+      "file": "CR_Xolumi_Brote_v01.glb",
+      "triangles": 3758,
+      "vertices": 3126,
+      "texture": "1024x1024",
+      "uvCoverage": 0.568,
+      "bakeSeconds": 98.3,
+      "sizeStuds": [
+        1.805,
+        1.262,
+        2.478
+      ]
+    },
+    "LOD1": {
+      "file": "CR_Xolumi_Brote_v01_LOD1.glb",
+      "triangles": 1692,
+      "vertices": 1649,
+      "texture": "512x512",
+      "uvCoverage": 0.497,
+      "bakeSeconds": 12.8,
+      "sizeStuds": [
+        1.805,
+        1.263,
+        2.483
+      ]
+    }
+  },
+  "highPolyTriangles": 158750,
+  "maps": {
+    "ColorMap": "textures/CR_Xolumi_Brote_v01_color.png",
+    "NormalMap": "textures/CR_Xolumi_Brote_v01_normal.png",
+    "RoughnessMap": "textures/CR_Xolumi_Brote_v01_roughness.png",
+    "MetalnessMap": "textures/CR_Xolumi_Brote_v01_metalness.png",
+    "EmissiveMask": "textures/CR_Xolumi_Brote_v01_emissive.png"
+  },
+  "files": {
+    "glb": "CR_Xolumi_Brote_v01.glb",
+    "glbLod1": "CR_Xolumi_Brote_v01_LOD1.glb",
+    "obj": "CR_Xolumi_Brote_v01.obj"
+  },
+  "dependencies": [],
+  "robloxAssetId": null,
+  "notes": "Cabeza ancha y sonrisa tranquila; tres pares de branquias plumosas; barro negro bruñido.",
+  "builtAt": "2026-11-24"
+}

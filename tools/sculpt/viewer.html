@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Visor del escultor</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #1b1612; overflow: hidden; }
+  body.sil { background: #ffffff; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+               "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+</script>
+<script type="module">
+// Visor de revisión de los modelos del escultor (renders de las hojas de giro, cabezas,
+// siluetas y pruebas de animación). Parámetros:
+//   model=<url.glb>  view=34|front|side|back|top|low  focus=x,y,z,r (encuadre de detalle)
+//   sil=1 (silueta negra)  bg=<hex>  t=<segundos> anim=idle|walk|happy (rig procedural)
+//   env=studio|valley  exposure=<n>
+import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+
+const q = new URLSearchParams(location.search);
+const W = innerWidth, H = innerHeight;
+const sil = q.get("sil") === "1";
+if (sil) document.body.classList.add("sil");
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1);
+renderer.setSize(W, H);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = +(q.get("exposure") || 1.05);
+renderer.shadowMap.enabled = !sil;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const bg = q.get("bg");
+if (!sil) {
+  // fondo con degradado del valle (cálido arriba, sombra fría abajo)
+  const c = document.createElement("canvas"); c.width = 4; c.height = 256;
+  const g = c.getContext("2d"); const gr = g.createLinearGradient(0, 0, 0, 256);
+  if (bg) { gr.addColorStop(0, "#" + bg); gr.addColorStop(1, "#" + bg); }
+  else { gr.addColorStop(0, "#5f6f5a"); gr.addColorStop(0.55, "#3c4436"); gr.addColorStop(1, "#1f2420"); }
+  g.fillStyle = gr; g.fillRect(0, 0, 4, 256);
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+  scene.background = tex;
+  const pm = new THREE.PMREMGenerator(renderer);
+  scene.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture;
+  scene.environmentIntensity = 0.55;
+}
+
+// luz de tarde dorada: clave cálida, relleno frío y contraluz
+const key = new THREE.DirectionalLight(0xffe2b8, sil ? 0 : 2.6);
+key.position.set(3.5, 6, 5);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.bias = -0.0004;
+key.shadow.normalBias = 0.02;
+scene.add(key);
+const fill = new THREE.DirectionalLight(0x9fc6d8, sil ? 0 : 0.55); fill.position.set(-5, 2.5, 2); scene.add(fill);
+const rim = new THREE.DirectionalLight(0xffd29a, sil ? 0 : 1.6); rim.position.set(-2.5, 4, -6); scene.add(rim);
+scene.add(new THREE.HemisphereLight(0xdfe8d0, 0x3a2e24, sil ? 0 : 0.35));
+
+const camera = new THREE.PerspectiveCamera(+(q.get("fov") || 30), W / H, 0.01, 200);
+const loader = new GLTFLoader();
+const url = q.get("model");
+loader.load(url, (gltf) => {
+  const root = gltf.scene;
+  scene.add(root);
+  const bones = {};
+  root.traverse((o) => {
+    if (o.isBone) bones[o.name] = o;
+    if (o.isMesh) {
+      o.castShadow = !sil; o.receiveShadow = !sil;
+      if (sil) o.material = new THREE.MeshBasicMaterial({ color: 0x000000 });
+      else if (o.material) {
+        o.material.vertexColors = !!o.geometry.attributes.color;
+        if (o.material.emissiveMap) o.material.emissiveIntensity = +(q.get("glow") || 1.4);
+      }
+    }
+  });
+  // con piel: actualizar huesos antes de medir (si no, la caja se calcula con matrices vacías)
+  root.updateMatrixWorld(true);
+  root.traverse((o) => { if (o.isSkinnedMesh) o.skeleton.update(); });
+  const box = new THREE.Box3().setFromObject(root, true);
+  const size = box.getSize(new THREE.Vector3()), center = box.getCenter(new THREE.Vector3());
+  if (!sil) {
+    const ground = new THREE.Mesh(new THREE.CircleGeometry(Math.max(size.x, size.z) * 1.2, 64),
+      new THREE.MeshStandardMaterial({ color: 0x4a4236, roughness: 0.95 }));
+    ground.rotation.x = -Math.PI / 2; ground.position.y = box.min.y - 0.002; ground.receiveShadow = true;
+    scene.add(ground);
+    key.shadow.camera.left = -size.length(); key.shadow.camera.right = size.length();
+    key.shadow.camera.top = size.length(); key.shadow.camera.bottom = -size.length();
+    key.target.position.copy(center); scene.add(key.target);
+  }
+  // encuadre
+  let target = center.clone(), radius = size.length() * 0.5;
+  const focus = q.get("focus");
+  if (focus) { const f = focus.split(",").map(Number); target.set(f[0], f[1], f[2]); radius = f[3]; }
+  const views = { "34": [35, 12], front: [0, 4], side: [90, 4], back: [180, 8], top: [20, 72], low: [28, -2], left: [-90, 4], "34b": [-35, 12] };
+  const [az, el] = (q.get("view") || "34").split(",").length === 2 ? q.get("view").split(",").map(Number) : (views[q.get("view") || "34"] || views["34"]);
+  const dist = radius / Math.sin((camera.fov * Math.PI / 180) / 2) * +(q.get("zoom") || 1.02);
+  const a = az * Math.PI / 180, e = el * Math.PI / 180;
+  camera.position.set(target.x + dist * Math.cos(e) * Math.sin(a), target.y + dist * Math.sin(e), target.z + dist * Math.cos(e) * Math.cos(a));
+  camera.lookAt(target);
+  // pose procedural para probar el rig (mismos huesos que el activo)
+  const t = +(q.get("t") || 0), anim = q.get("anim");
+  if (anim) pose(bones, anim, t);
+  renderer.render(scene, camera);
+  document.body.dataset.ready = "1";
+}, undefined, (err) => { document.body.dataset.error = String(err); document.body.dataset.ready = "1"; });
+
+function rotX(b, r) { if (b) b.rotation.x += r; }
+function rotY(b, r) { if (b) b.rotation.y += r; }
+function rotZ(b, r) { if (b) b.rotation.z += r; }
+function pose(B, anim, t) {
+  const s = Math.sin;
+  if (anim === "idle") {
+    rotX(B.spine, 0.03 * s(t * 2.2)); rotX(B.head, -0.06 * s(t * 2.2 + 0.6)); rotY(B.head, 0.25 * s(t * 0.9));
+    rotY(B.tail1, 0.25 * s(t * 1.6)); rotY(B.tail2, 0.35 * s(t * 1.6 - 0.7)); rotZ(B.tail3, 0.3 * s(t * 1.6 - 1.4));
+  } else if (anim === "walk") {
+    const w = t * 6.0;
+    for (const [n, ph] of [["legF_L", 0], ["legB_R", 0], ["legF_R", Math.PI], ["legB_L", Math.PI], ["legM_L", Math.PI], ["legM_R", 0]]) rotX(B[n], 0.55 * s(w + ph));
+    rotZ(B.spine, 0.06 * s(w)); rotX(B.head, 0.05 * s(w * 2)); rotY(B.tail1, 0.3 * s(w)); rotY(B.tail2, 0.4 * s(w - 0.8));
+  } else if (anim === "happy") {
+    rotX(B.chest, -0.2); rotX(B.head, -0.25); rotZ(B.head, 0.18); rotY(B.tail1, 0.5); rotX(B.tail2, -0.3);
+  } else if (anim === "attack") {
+    rotX(B.chest, 0.18); rotX(B.head, 0.22); rotX(B.legF_L, -0.6); rotX(B.legF_R, 0.25); rotY(B.tail1, -0.6); rotX(B.tail2, 0.5);
+  }
+}
+</script>
+</body>
+</html>

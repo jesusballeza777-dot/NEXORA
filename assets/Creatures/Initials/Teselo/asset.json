@@ -1,0 +1,144 @@
+{
+  "id": "CR_Teselo_Brote_v01",
+  "name": "Teselo",
+  "species": "teselo",
+  "form": "Brote",
+  "version": 1,
+  "status": "Proposal",
+  "approval": "Pendiente de aprobación humana (docs/ART_BIBLE_GENESIS.md §11)",
+  "provenance": "Esculpido procedural con tools/sculpt (campos de distancia → marching cubes → simplificación → UV xatlas → horneado PBR). Sin herramientas externas de IA.",
+  "rarity": "Comun",
+  "elements": [
+    "Tierra"
+  ],
+  "family": "ReptilAcorazado",
+  "biome": "ValleCopal",
+  "units": "studs (Y arriba, mira hacia +Z)",
+  "budget": {
+    "triangles": [
+      2500,
+      4000
+    ],
+    "bones": 18,
+    "texture": "1024x1024"
+  },
+  "bones": [
+    {
+      "name": "root",
+      "parent": null,
+      "head": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "body",
+      "parent": "root",
+      "head": [
+        0,
+        0.7,
+        -0.05
+      ]
+    },
+    {
+      "name": "neck",
+      "parent": "body",
+      "head": [
+        0,
+        0.66,
+        0.85
+      ]
+    },
+    {
+      "name": "head",
+      "parent": "neck",
+      "head": [
+        0,
+        0.8,
+        1.2
+      ]
+    },
+    {
+      "name": "legF_L",
+      "parent": "body",
+      "head": [
+        0.6,
+        0.55,
+        0.72
+      ]
+    },
+    {
+      "name": "legF_R",
+      "parent": "body",
+      "head": [
+        -0.6,
+        0.55,
+        0.72
+      ]
+    },
+    {
+      "name": "legB_L",
+      "parent": "body",
+      "head": [
+        0.6,
+        0.55,
+        -0.8
+      ]
+    },
+    {
+      "name": "legB_R",
+      "parent": "body",
+      "head": [
+        -0.6,
+        0.55,
+        -0.8
+      ]
+    }
+  ],
+  "lods": {
+    "LOD0": {
+      "file": "CR_Teselo_Brote_v01.glb",
+      "triangles": 3754,
+      "vertices": 2912,
+      "texture": "1024x1024",
+      "uvCoverage": 0.526,
+      "bakeSeconds": 88.1,
+      "sizeStuds": [
+        1.983,
+        1.771,
+        3.184
+      ]
+    },
+    "LOD1": {
+      "file": "CR_Teselo_Brote_v01_LOD1.glb",
+      "triangles": 1688,
+      "vertices": 1365,
+      "texture": "512x512",
+      "uvCoverage": 0.506,
+      "bakeSeconds": 13.3,
+      "sizeStuds": [
+        1.978,
+        1.776,
+        3.197
+      ]
+    }
+  },
+  "highPolyTriangles": 296976,
+  "maps": {
+    "ColorMap": "textures/CR_Teselo_Brote_v01_color.png",
+    "NormalMap": "textures/CR_Teselo_Brote_v01_normal.png",
+    "RoughnessMap": "textures/CR_Teselo_Brote_v01_roughness.png",
+    "MetalnessMap": "textures/CR_Teselo_Brote_v01_metalness.png",
+    "EmissiveMask": "textures/CR_Teselo_Brote_v01_emissive.png"
+  },
+  "files": {
+    "glb": "CR_Teselo_Brote_v01.glb",
+    "glbLod1": "CR_Teselo_Brote_v01_LOD1.glb",
+    "obj": "CR_Teselo_Brote_v01.obj"
+  },
+  "dependencies": [],
+  "robloxAssetId": null,
+  "notes": "Caparazón alto de teselas pulidas (ocre, crema y jade), patas columnares, cara curiosa; sin vegetación ni picos.",
+  "builtAt": "2026-11-24"
+}

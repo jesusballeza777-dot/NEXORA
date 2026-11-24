@@ -47,8 +47,14 @@ El jugador (R15) mide unos **5 studs**. Todo lo demás se lee en relación con �
 
 | Elemento | Altura (studs) | Nota |
 |---|---|---|
-| Brote | 1,6 – 2,4 | Llega a la rodilla o a la cadera del jugador; se lee como «cría» |
+| Brote | 1,2 – 2,4 de alto y ≤ 3,2 de largo | Llega a la rodilla o a la cadera del jugador; se lee como «cría». Las familias bajas (anfibio, reptil) se leen por el largo |
 | Tallado Común–Épico | ×1,4–×1,7 del Brote → 2,6 – 4,0 | Llega al pecho; nunca tapa la cámara de seguimiento |
+
+**Cómo se mide el ×1,4–×1,7** (aclaración de la Fase 3, D-034):
+- se usa la media geométrica de la caja envolvente del Tallado frente a la del Brote;
+- los rasgos firma (cola-látigo, corona de branquias, anillos, disco) quedan dentro, así que se admite hasta ×1,95;
+- la altura sola no sirve para criaturas largas y bajas como Ascuacho;
+- lo comprueba `tests/Unit/CreatureAssets.spec.luau`.
 | Tallado Legendario/Único | 4 – 6 | Presencia, pero cabe en un hábitat de 4 lugares |
 | Ser Sagrado (jefe) | 14 – 22 | Se ve desde la entrada del bioma; tapa el cielo, no al jugador |
 | Puesto de mercado | 8 – 10 | Escala humana: toldo a 7 studs |

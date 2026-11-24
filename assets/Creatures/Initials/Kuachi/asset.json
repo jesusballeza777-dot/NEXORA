@@ -1,0 +1,180 @@
+{
+  "id": "CR_Kuachi_Brote_v01",
+  "name": "Kuachi",
+  "species": "kuachi",
+  "form": "Brote",
+  "version": 1,
+  "status": "Proposal",
+  "approval": "Pendiente de aprobación humana (docs/ART_BIBLE_GENESIS.md §11)",
+  "provenance": "Esculpido procedural con tools/sculpt (campos de distancia → marching cubes → simplificación → UV xatlas → horneado PBR). Sin herramientas externas de IA.",
+  "rarity": "Comun",
+  "elements": [
+    "Fuego"
+  ],
+  "family": "CuadrupedoAgil",
+  "biome": "ValleCopal",
+  "units": "studs (Y arriba, mira hacia +Z)",
+  "budget": {
+    "triangles": [
+      2500,
+      4000
+    ],
+    "bones": 18,
+    "texture": "1024x1024"
+  },
+  "bones": [
+    {
+      "name": "root",
+      "parent": null,
+      "head": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "spine",
+      "parent": "root",
+      "head": [
+        0,
+        0.58,
+        -0.1
+      ]
+    },
+    {
+      "name": "chest",
+      "parent": "spine",
+      "head": [
+        0,
+        0.7,
+        0.2
+      ]
+    },
+    {
+      "name": "head",
+      "parent": "chest",
+      "head": [
+        0,
+        1.0,
+        0.36
+      ]
+    },
+    {
+      "name": "jaw",
+      "parent": "head",
+      "head": [
+        0,
+        0.93,
+        0.8
+      ]
+    },
+    {
+      "name": "legF_L",
+      "parent": "chest",
+      "head": [
+        0.18,
+        0.5,
+        0.24
+      ]
+    },
+    {
+      "name": "legF_R",
+      "parent": "chest",
+      "head": [
+        -0.18,
+        0.5,
+        0.24
+      ]
+    },
+    {
+      "name": "legB_L",
+      "parent": "spine",
+      "head": [
+        0.25,
+        0.42,
+        -0.3
+      ]
+    },
+    {
+      "name": "legB_R",
+      "parent": "spine",
+      "head": [
+        -0.25,
+        0.42,
+        -0.3
+      ]
+    },
+    {
+      "name": "tail1",
+      "parent": "spine",
+      "head": [
+        0,
+        0.5,
+        -0.52
+      ]
+    },
+    {
+      "name": "tail2",
+      "parent": "tail1",
+      "head": [
+        0,
+        1.12,
+        -1.1
+      ]
+    },
+    {
+      "name": "tail3",
+      "parent": "tail2",
+      "head": [
+        0,
+        1.22,
+        -0.66
+      ]
+    }
+  ],
+  "lods": {
+    "LOD0": {
+      "file": "CR_Kuachi_Brote_v01.glb",
+      "triangles": 3757,
+      "vertices": 2850,
+      "texture": "1024x1024",
+      "uvCoverage": 0.565,
+      "bakeSeconds": 88.1,
+      "sizeStuds": [
+        0.974,
+        1.68,
+        2.329
+      ]
+    },
+    "LOD1": {
+      "file": "CR_Kuachi_Brote_v01_LOD1.glb",
+      "triangles": 1687,
+      "vertices": 1475,
+      "texture": "512x512",
+      "uvCoverage": 0.499,
+      "bakeSeconds": 10.1,
+      "sizeStuds": [
+        0.971,
+        1.681,
+        2.324
+      ]
+    }
+  },
+  "highPolyTriangles": 157934,
+  "maps": {
+    "ColorMap": "textures/CR_Kuachi_Brote_v01_color.png",
+    "NormalMap": "textures/CR_Kuachi_Brote_v01_normal.png",
+    "RoughnessMap": "textures/CR_Kuachi_Brote_v01_roughness.png",
+    "MetalnessMap": "textures/CR_Kuachi_Brote_v01_metalness.png",
+    "EmissiveMask": "textures/CR_Kuachi_Brote_v01_emissive.png"
+  },
+  "files": {
+    "glb": "CR_Kuachi_Brote_v01.glb",
+    "glbLod1": "CR_Kuachi_Brote_v01_LOD1.glb",
+    "obj": "CR_Kuachi_Brote_v01.obj"
+  },
+  "dependencies": [],
+  "robloxAssetId": null,
+  "notes": "Cría sentada-de-pie con cabeza grande; cola en espiral como firma; bolsa tibia.",
+  "builtAt": "2026-11-24"
+}
