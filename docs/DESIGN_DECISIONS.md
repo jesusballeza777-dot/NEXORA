@@ -239,6 +239,49 @@ Formato: **estado** · decisión · por qué · consecuencias · dónde vive · 
   - las metas caben en el contenido del Acto I (`Phase2Config.spec` lo comprueba).
 - **Perfil v3:** `achievements` y el contador `counters.eggsHatched`. La migración 2→3 lo reconstruye con los monstruos nacidos de huevo. Los logros ya cumplidos se marcan con su premio al entrar.
 
+### D-034 · Escala Brote → Tallado medida por volumen — D (aclaración)
+- **Biblia:** el Tallado mide de ×1,4 a ×1,7 del Brote (p. 20).
+- **Problema:** con la altura o la dimensión mayor, las criaturas largas y bajas (Ascuacho, cuerpo de acecho más cola-látigo) parecen crecer ×2.
+- **Decisión:** se mide con la media geométrica de la caja envolvente. Los rasgos firma (cola, corona de branquias, anillos, disco) quedan dentro, así que se admite hasta ×1,95. Para el Brote, altura de 1,2 a 2,4 studs y largo ≤ 3,2.
+- **Prueba:** `tests/Unit/CreatureAssets.spec.luau`. Biblia visual §2.
+
+### D-035 · Luz por defecto: tarde dorada — PROPUESTA
+- El valle conserva la tarde dorada de las Fases 1 y 2 como luz de juego.
+- El crepúsculo y la noche quedan definidos como preajustes (`LIGHTING_DIRECTION.md`), sin ciclo de día activo hasta que se apruebe.
+
+### D-036 · Emisivo de las criaturas en Roblox — PENDIENTE (Studio)
+- Los modelos traen una máscara emisiva horneada.
+- **Opción 1:** propiedades emisivas de `SurfaceAppearance`, si la versión vigente las ofrece (verificar en la documentación oficial de Roblox).
+- **Opción 2:** una malla fina con `Neon`, generada con la misma máscara.
+- Se decide en Studio midiendo el coste.
+
+### D-037 · Expresiones en el juego — PENDIENTE
+- Las seis expresiones por forma existen en la escultura de revisión.
+- Para verlas en el juego hace falta una de dos cosas:
+  - *blendshapes* (Roblox los admite en mallas importadas con FACS; verificar el flujo vigente);
+  - huesos de párpados y mandíbula.
+- **Propuesta:** huesos de mandíbula y párpados (más barato), con *blendshapes* solo para las cinemáticas.
+
+### D-038 · Dirección visual recomendada: A · Artesanal orgánico — PENDIENTE DE APROBACIÓN 👤
+- Se compararon tres acabados sobre la misma anatomía (`docs/phase3/creatures/proposals-*.jpg`):
+  - **A · Artesanal:** relieve, materiales distintos y emisivo en surcos;
+  - **B · Juguete de cerámica:** liso y brillante;
+  - **C · Talla facetada:** low-poly plano.
+- **Se recomienda la A** porque cumple la Biblia visual y la petición de «no plástico, no prototipo».
+- La B queda como LOD lejano barato y la C se descarta para criaturas.
+- Hasta la aprobación, **no se producen más especies** (Biblia p. 118: «se congela el estilo con los iniciales»).
+
+### D-039 · Producción 3D sin Gemini, Meshy ni Blender — D
+- **Motivo:** ninguna de esas herramientas está conectada en el entorno.
+- **Qué se hizo:** los seis iniciales se produjeron con un escultor procedural propio (`tools/sculpt`: campos de distancia, simplificación, UV, horneado PBR y rig).
+- **Qué son:** mallas reales con UV, texturas y esqueleto, pero **propuestas** (`Proposal`).
+- **Cuándo cambian:** si se usa Meshy o un artista más adelante, sustituyen a estas mallas con el mismo `asset.json` y los mismos nombres de huesos.
+
+### D-040 · Integración de mallas por modelo importado, sin IDs en el código — D
+- En una experiencia publicada los scripts no pueden asignar las texturas de `SurfaceAppearance` ni el `MeshId`.
+- **Cómo se integra:** el modelo importado en Studio vive en `ReplicatedStorage.CreatureModels/<id>` y `MeshCreature` lo clona; si no está, se usa el blockout.
+- `Config/CreatureAssets` se genera desde `assets/` y solo guarda un `rbxassetid` cuando existe.
+
 ---
 
 ## 3. Contradicciones detectadas en la Biblia
